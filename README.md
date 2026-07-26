@@ -3,7 +3,7 @@
 A state-of-the-art computer vision pipeline for automated player/ball tracking, team classification, perspective homography mapping (screen pixels to real-world 2D pitch coordinates), kinematic metrics calculation (speed, distance, heatmaps), and split-screen tactical visualization from uncalibrated single-camera video streams.
 
 ---
-
+  
 ## Architecture Overview
 
 ```
