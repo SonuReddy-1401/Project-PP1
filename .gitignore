@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+env/
+venv/
+
+# Large Model Weight Files
+*.pt
+*.onnx
+*.engine
+
+# Video Datasets & Analytics Data
+data/input/*
+!data/input/.gitkeep
+data/output/*
+!data/output/.gitkeep
+data/soccernet/*
+!data/soccernet/.gitkeep
+
+# Environment variables & secrets
+.env
+
+# IDE & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,31 @@
+{
+  "reference_resolution": {
+    "width": 1280,
+    "height": 720
+  },
+  "pitch_dimensions": {
+    "length_meters": 105.0,
+    "width_meters": 68.0
+  },
+  "default_homography_keypoints": {
+    "src_pixels": [
+      [100, 200],
+      [1180, 200],
+      [1250, 700],
+      [30, 700]
+    ],
+    "dst_meters": [
+      [0.0, 0.0],
+      [105.0, 0.0],
+      [105.0, 68.0],
+      [0.0, 68.0]
+    ]
+  },
+  "tactical_pitch_render": {
+    "image_width": 1050,
+    "image_height": 680,
+    "background_color": [34, 139, 34],
+    "line_color": [255, 255, 255],
+    "line_thickness": 2
+  }
+}
