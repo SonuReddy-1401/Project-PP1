@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 import supervision as sv
 from ultralytics import YOLO
 
@@ -8,19 +8,29 @@ class FootballDetector:
     """
     Object detector wrapper for football entities (Players, Referees, Ball).
     Optimized for high-resolution wide-angle tactical broadcast footage.
-    Uses Ultralytics YOLOv8 models.
+    Supports Sliced/Tiled Inference (SAHI) for ultra-high-recall small object detection.
+    Automatically utilizes NVIDIA CUDA GPU acceleration when available.
     """
-    def __init__(self, model_path: str = "yolov8m.pt", conf_threshold: float = 0.15, imgsz: int = 1280, iou_threshold: float = 0.45):
+    def __init__(self, model_path: str = "yolov8m.pt", conf_threshold: float = 0.15, 
+                 imgsz: int = 1280, iou_threshold: float = 0.45, use_slicing: bool = True,
+                 device: Optional[str] = None):
         """
         Initializes YOLO model.
         COCO classes:
           0: person (players/referees)
           32: sports ball (ball)
         """
+        import torch
+        if device is None:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = device
+
         self.model = YOLO(model_path)
         self.conf_threshold = conf_threshold
         self.imgsz = imgsz
         self.iou_threshold = iou_threshold
+        self.use_slicing = use_slicing
         
         # COCO class mapping
         self.PERSON_CLASS_ID = 0
@@ -28,14 +38,22 @@ class FootballDetector:
 
     def detect_frame(self, frame: np.ndarray) -> sv.Detections:
         """
-        Runs object detection on a single video frame with high-resolution scaling.
-        Returns a supervision Detections object containing bboxes, confidences, and class_ids.
+        Runs object detection on a single video frame.
+        Uses Sliced Inference if use_slicing=True for maximum recall on tiny distant players.
+        """
+        if self.use_slicing:
+            return self.detect_frame_sliced(frame)
+        return self._detect_single_pass(frame, imgsz=self.imgsz)
+
+    def _detect_single_pass(self, frame: np.ndarray, imgsz: int = 1280) -> sv.Detections:
+        """
+        Single-pass YOLO inference.
         """
         results = self.model(
             frame, 
             conf=self.conf_threshold, 
             iou=self.iou_threshold,
-            imgsz=self.imgsz, 
+            imgsz=imgsz, 
             verbose=False
         )[0]
         detections = sv.Detections.from_ultralytics(results)
@@ -48,6 +66,77 @@ class FootballDetector:
         filtered_detections = detections[target_indices]
         
         return filtered_detections
+
+    def detect_frame_sliced(
+        self, 
+        frame: np.ndarray, 
+        slice_wh: Tuple[int, int] = (640, 640), 
+        overlap_ratio: float = 0.20
+    ) -> sv.Detections:
+        """
+        Slices high-resolution broadcast frame into overlapping patches for high-recall detection.
+        Ensures tiny players (<15px) on wide tactical cam highlights are accurately detected.
+        """
+        h_frame, w_frame = frame.shape[:2]
+        slice_w, slice_h = slice_wh
+        
+        step_x = int(slice_w * (1.0 - overlap_ratio))
+        step_y = int(slice_h * (1.0 - overlap_ratio))
+        
+        x_offsets = list(range(0, max(1, w_frame - slice_w + 1), step_x))
+        if len(x_offsets) == 0 or x_offsets[-1] + slice_w < w_frame:
+            x_offsets.append(max(0, w_frame - slice_w))
+            
+        y_offsets = list(range(0, max(1, h_frame - slice_h + 1), step_y))
+        if len(y_offsets) == 0 or y_offsets[-1] + slice_h < h_frame:
+            y_offsets.append(max(0, h_frame - slice_h))
+            
+        all_detections = []
+        
+        # 1. Full-frame high-resolution pass
+        full_dets = self._detect_single_pass(frame, imgsz=self.imgsz)
+        if len(full_dets) > 0:
+            all_detections.append(full_dets)
+            
+        # 2. Slice-level passes
+        for y_off in y_offsets:
+            for x_off in x_offsets:
+                slice_crop = frame[y_off:y_off+slice_h, x_off:x_off+slice_w]
+                if slice_crop.size == 0 or slice_crop.shape[0] < 50 or slice_crop.shape[1] < 50:
+                    continue
+                    
+                results = self.model(
+                    slice_crop,
+                    conf=self.conf_threshold,
+                    iou=self.iou_threshold,
+                    imgsz=slice_w,
+                    verbose=False
+                )[0]
+                
+                slice_dets = sv.Detections.from_ultralytics(results)
+                if len(slice_dets) == 0 or slice_dets.class_id is None:
+                    continue
+                    
+                target_mask = np.isin(slice_dets.class_id, [self.PERSON_CLASS_ID, self.BALL_CLASS_ID])
+                filtered_slice_dets = slice_dets[target_mask]
+                
+                if len(filtered_slice_dets) == 0:
+                    continue
+                    
+                # Offset bounding boxes back to full-frame coordinates
+                filtered_slice_dets.xyxy[:, [0, 2]] += x_off
+                filtered_slice_dets.xyxy[:, [1, 3]] += y_off
+                all_detections.append(filtered_slice_dets)
+                
+        if not all_detections:
+            return sv.Detections.empty()
+            
+        # Merge all detections across slices
+        merged_dets = sv.Detections.merge(all_detections)
+        if hasattr(merged_dets, 'with_nms'):
+            merged_dets = merged_dets.with_nms(threshold=self.iou_threshold)
+            
+        return merged_dets
 
     def separate_detections(self, detections: sv.Detections) -> Tuple[sv.Detections, sv.Detections]:
         """

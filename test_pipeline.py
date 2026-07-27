@@ -75,7 +75,7 @@ def test_pipeline_execution():
     output_video = "data/output/synthetic_output.mp4"
     output_csv = "data/output/synthetic_metrics.csv"
     
-    run_pipeline(input_video=input_video, output_video=output_video, output_csv=output_csv, max_frames=30, model_path="yolov8n.pt", imgsz=640)
+    run_pipeline(input_video=input_video, output_video=output_video, output_csv=output_csv, max_frames=30, model_path="yolov8n.pt", imgsz=640, use_slicing=False)
     
     assert os.path.exists(output_video), "Output video file was not generated!"
     assert os.path.exists(output_csv), "Output CSV file was not generated!"
