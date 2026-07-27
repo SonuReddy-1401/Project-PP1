@@ -8,12 +8,12 @@ class FootballDetector:
     """
     Object detector wrapper for football entities (Players, Referees, Ball).
     Optimized for high-resolution wide-angle tactical broadcast footage.
-    Supports Sliced/Tiled Inference (SAHI) for ultra-high-recall small object detection.
+    Supports Sliced/Tiled Inference (SAHI) with GPU Tensor Batching & FP16 Half-Precision.
     Automatically utilizes NVIDIA CUDA GPU acceleration when available.
     """
     def __init__(self, model_path: str = "yolov8m.pt", conf_threshold: float = 0.15, 
                  imgsz: int = 1280, iou_threshold: float = 0.45, use_slicing: bool = True,
-                 device: Optional[str] = None):
+                 device: Optional[str] = None, half: Optional[bool] = None):
         """
         Initializes YOLO model.
         COCO classes:
@@ -25,6 +25,11 @@ class FootballDetector:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.device = device
+
+        if half is None:
+            self.half = (self.device == "cuda")
+        else:
+            self.half = half
 
         self.model = YOLO(model_path)
         self.conf_threshold = conf_threshold
@@ -47,13 +52,15 @@ class FootballDetector:
 
     def _detect_single_pass(self, frame: np.ndarray, imgsz: int = 1280) -> sv.Detections:
         """
-        Single-pass YOLO inference.
+        Single-pass YOLO inference with optional FP16 half precision.
         """
         results = self.model(
             frame, 
             conf=self.conf_threshold, 
             iou=self.iou_threshold,
             imgsz=imgsz, 
+            device=self.device,
+            half=self.half,
             verbose=False
         )[0]
         detections = sv.Detections.from_ultralytics(results)
@@ -74,8 +81,8 @@ class FootballDetector:
         overlap_ratio: float = 0.20
     ) -> sv.Detections:
         """
-        Slices high-resolution broadcast frame into overlapping patches for high-recall detection.
-        Ensures tiny players (<15px) on wide tactical cam highlights are accurately detected.
+        Slices high-resolution broadcast frame into overlapping patches and executes
+        GPU Tensor Batching for maximum recall and speed on RTX GPUs.
         """
         h_frame, w_frame = frame.shape[:2]
         slice_w, slice_h = slice_wh
@@ -98,22 +105,32 @@ class FootballDetector:
         if len(full_dets) > 0:
             all_detections.append(full_dets)
             
-        # 2. Slice-level passes
+        # 2. Collect slice crops for GPU Tensor Batching
+        slice_crops = []
+        slice_coords = []
+        
         for y_off in y_offsets:
             for x_off in x_offsets:
                 slice_crop = frame[y_off:y_off+slice_h, x_off:x_off+slice_w]
                 if slice_crop.size == 0 or slice_crop.shape[0] < 50 or slice_crop.shape[1] < 50:
                     continue
-                    
-                results = self.model(
-                    slice_crop,
-                    conf=self.conf_threshold,
-                    iou=self.iou_threshold,
-                    imgsz=slice_w,
-                    verbose=False
-                )[0]
+                slice_crops.append(slice_crop)
+                slice_coords.append((x_off, y_off))
                 
-                slice_dets = sv.Detections.from_ultralytics(results)
+        if slice_crops:
+            # Batch inference across CUDA Tensor Cores
+            batch_results = self.model(
+                slice_crops,
+                conf=self.conf_threshold,
+                iou=self.iou_threshold,
+                imgsz=slice_w,
+                device=self.device,
+                half=self.half,
+                verbose=False
+            )
+            
+            for res, (x_off, y_off) in zip(batch_results, slice_coords):
+                slice_dets = sv.Detections.from_ultralytics(res)
                 if len(slice_dets) == 0 or slice_dets.class_id is None:
                     continue
                     

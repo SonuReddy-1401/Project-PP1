@@ -64,7 +64,8 @@ def process_and_analyze_clips():
         output_csv=clip1_output_csv,
         model_path="yolov8m.pt",
         imgsz=1280,
-        conf_threshold=0.15
+        conf_threshold=0.15,
+        frame_stride=2
     )
 
     # 4. Analyze Clip 2
@@ -77,7 +78,8 @@ def process_and_analyze_clips():
         output_csv=clip2_output_csv,
         model_path="yolov8m.pt",
         imgsz=1280,
-        conf_threshold=0.15
+        conf_threshold=0.15,
+        frame_stride=2
     )
 
     print("\n[FINISHED] Both 2:30 clips processed successfully!")

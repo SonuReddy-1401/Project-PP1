@@ -20,7 +20,7 @@ from src.visualization.drawers import PitchDrawer
 def run_pipeline(input_video: str, output_video: str, output_csv: str = None, 
                  config_path: str = "configs/pitch_config.json", max_frames: int = None,
                  model_path: str = "yolov8m.pt", imgsz: int = 1280, conf_threshold: float = 0.15,
-                 use_slicing: bool = True, generate_heatmaps: bool = True):
+                 use_slicing: bool = True, generate_heatmaps: bool = True, frame_stride: int = 1):
     print("=" * 70)
     print("      INTELLIGENT FOOTBALL PERFORMANCE ANALYSIS PIPELINE      ")
     print("=" * 70)
@@ -62,7 +62,7 @@ def run_pipeline(input_video: str, output_video: str, output_csv: str = None,
     pitch_drawer = PitchDrawer()
     heatmap_gen = PlayerHeatmapGenerator()
 
-    print(f"       Detection Model: {model_path} | Device: {detector.device.upper()} | Inference Resolution: {imgsz}px | Sliced Tiling: {use_slicing}")
+    print(f"       Detection Model: {model_path} | Device: {detector.device.upper()} (FP16: {detector.half}) | Resolution: {imgsz}px | Stride: {frame_stride}")
 
     # 4. Process Video Frame by Frame
     cap = cv2.VideoCapture(input_video)
@@ -72,38 +72,38 @@ def run_pipeline(input_video: str, output_video: str, output_csv: str = None,
     total = min(props['total_frames'], max_frames) if max_frames else props['total_frames']
     pbar = tqdm(total=total, desc="[PROCESSING FRAMES]")
 
+    cached_tracked_dets = None
+    cached_valid_pitch_positions_m = {}
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Object Detection & Tracking
-        detections = detector.detect_frame(frame)
-        players_refs_dets, ball_dets = detector.separate_detections(detections)
-        tracked_dets = tracker.update(players_refs_dets)
-        
-        # Foot positions & Homography Transformation (Pixels -> Meters)
-        foot_positions_px = tracker.get_foot_positions(tracked_dets)
-        pitch_positions_m = {}
-        valid_pitch_positions_m = {}
-        for track_id, px in foot_positions_px.items():
-            pos_m = homography.pixel_to_pitch(px)[0]
-            pitch_positions_m[track_id] = pos_m
-            # Check pitch bounds (filters out sideline coaches, sub bench, cameras)
-            if homography.is_inside_pitch(pos_m, margin=2.0):
-                valid_pitch_positions_m[track_id] = pos_m
+        # Run Detection & Tracking on stride frames
+        if frame_idx % frame_stride == 0 or cached_tracked_dets is None:
+            detections = detector.detect_frame(frame)
+            players_refs_dets, ball_dets = detector.separate_detections(detections)
+            cached_tracked_dets = tracker.update(players_refs_dets)
+            
+            # Foot positions & Homography Transformation (Pixels -> Meters)
+            foot_positions_px = tracker.get_foot_positions(cached_tracked_dets)
+            cached_valid_pitch_positions_m = {}
+            for track_id, px in foot_positions_px.items():
+                pos_m = homography.pixel_to_pitch(px)[0]
+                if homography.is_inside_pitch(pos_m, margin=2.0):
+                    cached_valid_pitch_positions_m[track_id] = pos_m
 
-        # Continuously update team assigner with CIELAB+HSV crop features and pitch coordinates
-        if len(tracked_dets) > 0:
-            team_assigner.update(frame, tracked_dets, pitch_positions_m)
+            if len(cached_tracked_dets) > 0:
+                team_assigner.update(frame, cached_tracked_dets, cached_valid_pitch_positions_m)
 
         # Update Kinematic Metrics (only for active on-pitch players)
-        metrics_calc.update_positions(frame_idx, valid_pitch_positions_m)
+        metrics_calc.update_positions(frame_idx, cached_valid_pitch_positions_m)
 
         # Draw Annotations
-        annotated_frame = pitch_drawer.draw_player_ellipses(frame, tracked_dets, team_assigner, metrics_calc)
+        annotated_frame = pitch_drawer.draw_player_ellipses(frame, cached_tracked_dets, team_assigner, metrics_calc)
         split_view_frame = pitch_drawer.draw_tactical_pitch_overlay(
-            annotated_frame, valid_pitch_positions_m, metrics_calc, team_assigner, homography
+            annotated_frame, cached_valid_pitch_positions_m, metrics_calc, team_assigner, homography
         )
 
         # Stream frame directly to disk to maintain O(1) memory usage
@@ -145,8 +145,10 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="yolov8m.pt", help="Path or name of YOLO model (e.g. yolov8m.pt, yolov8x.pt)")
     parser.add_argument("--imgsz", type=int, default=1280, help="Inference resolution size (default: 1280 for wide-angle clips)")
     parser.add_argument("--conf", type=float, default=0.15, help="Detection confidence threshold")
+    parser.add_argument("--stride", type=int, default=2, help="Frame stride subsampling (default: 2 for 25 FPS processing)")
     parser.add_argument("--max_frames", type=int, default=None, help="Optional max frames limit")
     args = parser.parse_args()
 
     run_pipeline(args.input, args.output, args.csv, max_frames=args.max_frames,
-                 model_path=args.model, imgsz=args.imgsz, conf_threshold=args.conf)
+                 model_path=args.model, imgsz=args.imgsz, conf_threshold=args.conf,
+                 frame_stride=args.stride)
