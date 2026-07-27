@@ -44,13 +44,13 @@ def process_and_analyze_clips():
 
     # 1. Download Clip 1 (00:00:00 to 00:02:30 - 2 minutes 30 seconds)
     if not os.path.exists(clip1_input):
-        download_youtube_clip(yt_url, "00:00:00", "00:02:30", clip1_input)
+        download_youtube_clip(yt_url, "00:02:30", "00:05:00", clip1_input)
     else:
         print(f"[INFO] Using existing Clip 1: {clip1_input}")
 
     # 2. Download Clip 2 (00:02:30 to 00:05:00 - 2 minutes 30 seconds)
     if not os.path.exists(clip2_input):
-        download_youtube_clip(yt_url, "00:02:30", "00:05:00", clip2_input)
+        download_youtube_clip(yt_url, "00:10:00", "00:12:30", clip2_input)
     else:
         print(f"[INFO] Using existing Clip 2: {clip2_input}")
 
