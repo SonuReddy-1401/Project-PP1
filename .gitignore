@@ -20,6 +20,8 @@ data/output/*
 !data/output/.gitkeep
 data/soccernet/*
 !data/soccernet/.gitkeep
+data/Temp/
+!data/Temp/.gitkeep
 
 # Environment variables & secrets
 .env
