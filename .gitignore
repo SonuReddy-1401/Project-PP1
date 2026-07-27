@@ -8,10 +8,13 @@ __pycache__/
 env/
 venv/
 
-# Large Model Weight Files
+# Large Model Weight Files & Stubs
+models/
 *.pt
+*.pth
 *.onnx
 *.engine
+*.pkl
 
 # Video Datasets & Analytics Data
 data/input/*

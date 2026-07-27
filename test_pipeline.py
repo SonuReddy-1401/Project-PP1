@@ -64,6 +64,17 @@ def test_pipeline_execution():
     assert stats["total_distance_m"] > 5.0, "Distance metric calculation error!"
     assert stats["current_speed_kmh"] > 0.0, "Speed calculation error!"
 
+    # Verify Re-ID manager
+    from src.perception.reid import PlayerReIDManager
+    reid = PlayerReIDManager()
+    dummy_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+    dummy_frame[:] = (34, 139, 34)
+    dummy_bbox = np.array([100, 100, 150, 250])
+    gid1 = reid.get_global_id(dummy_frame, 1, dummy_bbox)
+    gid2 = reid.get_global_id(dummy_frame, 2, dummy_bbox)
+    print(f"       Re-ID Gallery Test: Track #1 -> Global #{gid1}, Track #2 (Same Appearance) -> Global #{gid2}")
+    assert gid1 == gid2, "Re-ID appearance gallery match failed!"
+
     # Verify drawers
     drawer = PitchDrawer()
     pitch_img = drawer.pitch_template.draw_pitch()

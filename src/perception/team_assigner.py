@@ -6,8 +6,9 @@ from typing import Dict, List, Tuple, Optional, Any
 class TeamAssigner:
     """
     Advanced Team & Entity Classifier for Broadcast Football Clips.
-    Uses CIELAB + HSV perceptual color space, dual-crop (Jersey + Shorts) feature extraction,
-    multi-frame accumulation, and specialized Referee (REF) & Goalkeeper (GK) detection.
+    Supports explicit jersey color filtering (e.g. Red Team) as well as
+    CIELAB + HSV perceptual color clustering, dual-crop feature extraction,
+    and specialized Referee (REF) & Goalkeeper (GK) detection.
     """
     # Role Constants
     ROLE_TEAM_1 = "TEAM_1"
@@ -15,15 +16,16 @@ class TeamAssigner:
     ROLE_REFEREE = "REFEREE"
     ROLE_GOALKEEPER = "GOALKEEPER"
 
-    def __init__(self):
+    def __init__(self, target_color: Optional[str] = "red"):
+        self.target_color = target_color.lower() if target_color else None
         self.track_features: Dict[int, List[np.ndarray]] = {}
         self.track_bgr_colors: Dict[int, np.ndarray] = {}
         self.track_roles: Dict[int, str] = {}
         self.track_team_ids: Dict[int, int] = {}
         
         self.team_colors_bgr: Dict[int, Tuple[int, int, int]] = {
-            1: (255, 69, 0),     # Team 1 Color (Blue/Orange)
-            2: (0, 215, 255),    # Team 2 Color (Yellow/Gold)
+            1: (0, 0, 255),      # Team 1 Color (Red)
+            2: (255, 255, 255),  # Team 2 Color (White/Other)
             0: (0, 255, 255),    # Referee Color (Bright Yellow)
             3: (147, 20, 255)    # Goalkeeper Color (Deep Pink/Neon)
         }
@@ -31,11 +33,9 @@ class TeamAssigner:
         self.kmeans: Optional[KMeans] = None
         self.is_fitted = False
 
-    def _extract_crop_features(self, frame: np.ndarray, bbox: np.ndarray) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    def _extract_crop_features(self, frame: np.ndarray, bbox: np.ndarray) -> Optional[Tuple[np.ndarray, np.ndarray, float]]:
         """
-        Extracts CIELAB & HSV perceptual color features from both Torso (Jersey) and Shorts regions.
-        Filters out background grass green.
-        Returns: (12-D feature vector, BGR average color)
+        Extracts CIELAB & HSV perceptual color features and Red Jersey ratio.
         """
         x1, y1, x2, y2 = map(int, bbox)
         h, w = y2 - y1, x2 - x1
@@ -48,6 +48,15 @@ class TeamAssigner:
 
         if torso_crop.size == 0 or shorts_crop.size == 0:
             return None
+
+        hsv_t = cv2.cvtColor(torso_crop, cv2.COLOR_BGR2HSV)
+        lab_t = cv2.cvtColor(torso_crop, cv2.COLOR_BGR2LAB)
+        
+        # Calculate Red Jersey Pixel Ratio (Hue 0-12 or 155-180, Sat > 50, Val > 40)
+        red_mask1 = cv2.inRange(hsv_t, np.array([0, 50, 40]), np.array([12, 255, 255]))
+        red_mask2 = cv2.inRange(hsv_t, np.array([155, 50, 40]), np.array([180, 255, 255]))
+        red_mask = cv2.bitwise_or(red_mask1, red_mask2)
+        red_ratio = float(np.sum(red_mask > 0)) / float(torso_crop.shape[0] * torso_crop.shape[1] + 1e-5)
 
         def process_region(crop):
             hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
@@ -72,18 +81,17 @@ class TeamAssigner:
             bgr_mean = np.mean(bgr_filtered, axis=0)
             return lab_mean, hsv_mean, bgr_mean
 
-        lab_t, hsv_t, bgr_t = process_region(torso_crop)
-        lab_s, hsv_s, bgr_s = process_region(shorts_crop)
+        lab_t_mean, hsv_t_mean, bgr_t = process_region(torso_crop)
+        lab_s_mean, hsv_s_mean, bgr_s = process_region(shorts_crop)
 
-        # 12-dimensional feature vector combining Jersey & Shorts perceptual colors
-        feature_vec = np.concatenate([lab_t, hsv_t, lab_s, hsv_s])
+        feature_vec = np.concatenate([lab_t_mean, hsv_t_mean, lab_s_mean, hsv_s_mean])
         avg_bgr = 0.7 * bgr_t + 0.3 * bgr_s
 
-        return feature_vec, avg_bgr
+        return feature_vec, avg_bgr, red_ratio
 
     def update(self, frame: np.ndarray, tracked_detections: Any, pitch_positions: Dict[int, np.ndarray] = None):
         """
-        Accumulates player crop features frame-by-frame and fits/updates multi-team clustering.
+        Accumulates player crop features frame-by-frame and fits team classification.
         """
         if tracked_detections.tracker_id is None:
             return
@@ -94,23 +102,29 @@ class TeamAssigner:
             if extracted is None:
                 continue
 
-            feat, bgr = extracted
+            feat, bgr, red_ratio = extracted
             if tid not in self.track_features:
                 self.track_features[tid] = []
             
-            # Limit history to 30 feature samples per player to stay fast and adaptive
             if len(self.track_features[tid]) < 30:
                 self.track_features[tid].append(feat)
             self.track_bgr_colors[tid] = bgr
 
-        # Re-fit clustering once we have at least 6 distinct tracked entities or 20 total samples
-        if len(self.track_features) >= 4:
+            # Direct Red Jersey Classification if target_color=="red"
+            if self.target_color == "red":
+                if red_ratio >= 0.15:
+                    self.track_roles[tid] = self.ROLE_TEAM_1
+                    self.track_team_ids[tid] = 1
+                else:
+                    self.track_roles[tid] = self.ROLE_TEAM_2
+                    self.track_team_ids[tid] = 2
+
+        if not self.target_color and len(self.track_features) >= 4:
             self._fit_clustering(pitch_positions)
 
     def _fit_clustering(self, pitch_positions: Dict[int, np.ndarray] = None):
         """
-        Fits K-Means / GMM clustering on accumulated player CIELAB+HSV features.
-        Identifies Referees and Goalkeepers.
+        Fits K-Means clustering on accumulated player CIELAB+HSV features.
         """
         track_ids = []
         mean_features = []
@@ -124,60 +138,34 @@ class TeamAssigner:
             return
 
         X = np.array(mean_features)
-        
-        # 1. Normalize feature matrix for equal weight between CIELAB (L, a, b) & HSV (H, S, V)
         X_norm = (X - np.mean(X, axis=0)) / (np.std(X, axis=0) + 1e-5)
 
-        # 2. Fit 2 primary team clusters first on CIELAB features
         kmeans_teams = KMeans(n_clusters=2, n_init=10, random_state=42)
-        team_labels = kmeans_teams.fit_predict(X_norm[:, [0, 1, 2, 6, 7, 8]]) # Use CIELAB channels
-
-        # 3. Detect Referees & Goalkeepers via feature distances & pitch position
-        cluster_0_indices = np.where(team_labels == 0)[0]
-        cluster_1_indices = np.where(team_labels == 1)[0]
-
-        # Calculate cluster centroids
-        c0_center = np.mean(X_norm[cluster_0_indices], axis=0)
-        c1_center = np.mean(X_norm[cluster_1_indices], axis=0)
+        team_labels = kmeans_teams.fit_predict(X_norm[:, [0, 1, 2, 6, 7, 8]])
 
         for idx, tid in enumerate(track_ids):
-            feat = X_norm[idx]
-            dist0 = np.linalg.norm(feat - c0_center)
-            dist1 = np.linalg.norm(feat - c1_center)
-            
-            # Check pitch position for Goalkeeper heuristic (near goal line X < 14m or X > 91m)
-            pos = pitch_positions.get(tid) if pitch_positions else None
-            is_near_goal = False
-            if pos is not None:
-                is_near_goal = (pos[0] <= 14.0 or pos[0] >= 91.0) and (18.0 <= pos[1] <= 50.0)
-
-            # Check if entity is outlier (Referee or Goalkeeper)
-            min_dist = min(dist0, dist1)
-            
-            if is_near_goal and min_dist > 2.2:
-                self.track_roles[tid] = self.ROLE_GOALKEEPER
-                self.track_team_ids[tid] = 3
-            elif min_dist > 3.5: # Outlier feature distance -> Referee
-                self.track_roles[tid] = self.ROLE_REFEREE
-                self.track_team_ids[tid] = 0
-            else:
-                assigned_team = team_labels[idx] + 1
-                self.track_roles[tid] = self.ROLE_TEAM_1 if assigned_team == 1 else self.ROLE_TEAM_2
-                self.track_team_ids[tid] = assigned_team
+            assigned_team = team_labels[idx] + 1
+            self.track_roles[tid] = self.ROLE_TEAM_1 if assigned_team == 1 else self.ROLE_TEAM_2
+            self.track_team_ids[tid] = assigned_team
 
         self.is_fitted = True
 
     def get_player_team(self, frame: np.ndarray, bbox: np.ndarray, track_id: int) -> int:
         """
-        Returns numeric team ID for backwards compatibility:
-          1: Team 1
+        Returns numeric team ID:
+          1: Team 1 (Red Team when target_color="red")
           2: Team 2
-          0: Referee
-          3: Goalkeeper
         """
         tid = int(track_id)
         if tid in self.track_team_ids:
             return self.track_team_ids[tid]
+            
+        if self.target_color == "red":
+            extracted = self._extract_crop_features(frame, bbox)
+            if extracted is not None and extracted[2] >= 0.15:
+                return 1
+            return 2
+            
         return 1
 
     def get_player_role_info(self, track_id: int) -> Dict[str, Any]:
@@ -188,7 +176,7 @@ class TeamAssigner:
         tid = int(track_id)
         team_id = self.track_team_ids.get(tid, 1)
         role = self.track_roles.get(tid, self.ROLE_TEAM_1)
-        color = self.team_colors_bgr.get(team_id, (255, 255, 255))
+        color = self.team_colors_bgr.get(team_id, (0, 0, 255) if team_id == 1 else (255, 255, 255))
         
         return {
             "role": role,

@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 
 class HomographyTransformer:
     """
@@ -18,15 +18,20 @@ class HomographyTransformer:
         if src_pixels is not None and dst_meters is not None:
             self.update_homography(src_pixels, dst_meters)
 
-    def update_homography(self, src_pixels: np.ndarray, dst_meters: np.ndarray):
+    def update_homography(self, src_pixels: np.ndarray, dst_meters: np.ndarray, smoothing_alpha: float = 0.85):
         """
-        Computes 3x3 Homography matrix using OpenCV cv2.findHomography.
+        Computes 3x3 Homography matrix using OpenCV cv2.findHomography with temporal EMA smoothing.
+        Prevents 2D pitch map player dots from jumping when camera pans.
         """
         src_pts = np.float32(src_pixels).reshape(-1, 1, 2)
         dst_pts = np.float32(dst_meters).reshape(-1, 1, 2)
         
-        self.H, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        if self.H is not None:
+        new_H, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        if new_H is not None:
+            if self.H is None:
+                self.H = new_H
+            else:
+                self.H = smoothing_alpha * self.H + (1.0 - smoothing_alpha) * new_H
             self.inv_H = np.linalg.inv(self.H)
 
     def pixel_to_pitch(self, pixel_pos: np.ndarray) -> np.ndarray:
@@ -53,20 +58,19 @@ class HomographyTransformer:
         transformed = cv2.perspectiveTransform(pts, self.inv_H)
         return transformed.reshape(-1, 2)
 
-    def is_inside_pitch(self, pitch_pos: np.ndarray, margin: float = 2.0, 
-                        pitch_length: float = 105.0, pitch_width: float = 68.0) -> np.ndarray:
+    def is_inside_pitch(self, pitch_pos: Any, margin: float = 2.0, 
+                        pitch_length: float = 105.0, pitch_width: float = 68.0) -> bool:
         """
-        Returns boolean mask indicating whether pitch coordinates (X, Y) lie inside valid play bounds.
+        Returns boolean indicating whether pitch coordinates (X, Y) lie inside valid play bounds.
         Filters out sideline staff, coaches, substitute players, and camera crew.
         """
-        pts = np.atleast_2d(pitch_pos)
-        x = pts[:, 0]
-        y = pts[:, 1]
-        
-        valid_x = (x >= -margin) & (x <= pitch_length + margin)
-        valid_y = (y >= -margin) & (y <= pitch_width + margin)
-        is_inside = valid_x & valid_y
-        
-        if pitch_pos.ndim == 1:
-            return bool(is_inside[0])
-        return is_inside
+        try:
+            arr = np.asarray(pitch_pos, dtype=np.float32).flatten()
+            if len(arr) < 2:
+                return False
+            x, y = float(arr[0]), float(arr[1])
+            if np.isnan(x) or np.isnan(y):
+                return False
+            return (-margin <= x <= pitch_length + margin) and (-margin <= y <= pitch_width + margin)
+        except Exception:
+            return False

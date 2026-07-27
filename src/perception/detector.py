@@ -60,7 +60,6 @@ class FootballDetector:
             iou=self.iou_threshold,
             imgsz=imgsz, 
             device=self.device,
-            half=self.half,
             verbose=False
         )[0]
         detections = sv.Detections.from_ultralytics(results)
@@ -125,7 +124,6 @@ class FootballDetector:
                 iou=self.iou_threshold,
                 imgsz=slice_w,
                 device=self.device,
-                half=self.half,
                 verbose=False
             )
             

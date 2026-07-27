@@ -1,154 +1,107 @@
-import argparse
 import os
-# pyrefly: ignore [missing-import]
+import argparse
 import cv2
 import numpy as np
-import pandas as pd
-from tqdm import tqdm
-import json
 
-from src.utils.video_utils import get_video_properties, save_video_frames, VideoWriterStream
-from src.perception.detector import FootballDetector
-from src.perception.tracker import FootballTracker
-from src.perception.team_assigner import TeamAssigner
-from src.geometry.homography import HomographyTransformer
-from src.geometry.pitch_template import TacticalPitchTemplate
-from src.analytics.metrics import KinematicMetricsCalculator
-from src.analytics.heatmap import PlayerHeatmapGenerator
-from src.visualization.drawers import PitchDrawer
+from utils.video_utils import read_video, save_video
+from trackers.tracker import Tracker
+from camera_movement_estimator.camera_movement_estimator import CameraMovementEstimator
+from team_assigner.team_assigner import TeamAssigner
+from view_transformer.view_transformer import ViewTransformer
+from speed_and_distance_estimator.speed_and_distance_estimator import SpeedAndDistanceEstimator
 
-def run_pipeline(input_video: str, output_video: str, output_csv: str = None, 
-                 config_path: str = "configs/pitch_config.json", max_frames: int = None,
-                 model_path: str = "yolov8m.pt", imgsz: int = 1280, conf_threshold: float = 0.15,
-                 use_slicing: bool = True, generate_heatmaps: bool = True, frame_stride: int = 1):
+def main(input_video: str = "data/input/new_match_red_team_1080p.mp4",
+         output_dir: str = "data/output",
+         model_path: str = "models/yolov8x.pt",
+         color: str = "red",
+         target_team: int = 1,
+         max_frames: int = None):
+
     print("=" * 70)
-    print("      INTELLIGENT FOOTBALL PERFORMANCE ANALYSIS PIPELINE      ")
+    print("   ABDULLAH TAREK FOOTBALL ANALYSIS PIPELINE RECREATION   ")
     print("=" * 70)
-    
-    # 1. Video Properties
-    props = get_video_properties(input_video)
-    print(f"[INFO] Processing Video: {input_video}")
-    print(f"       Resolution: {props['width']}x{props['height']} | FPS: {props['fps']} | Total Frames: {props['total_frames']}")
 
-    # 2. Config & Homography Setup
-    if os.path.exists(config_path):
-        with open(config_path, "r") as f:
-            cfg = json.load(f)
-        cfg_src = np.array(cfg["default_homography_keypoints"]["src_pixels"], dtype=np.float32)
-        dst_m = np.array(cfg["default_homography_keypoints"]["dst_meters"], dtype=np.float32)
-        
-        # Dynamically scale src_pixels if video resolution differs from reference config resolution (1280x720)
-        ref_w = cfg.get("reference_resolution", {}).get("width", 1280)
-        ref_h = cfg.get("reference_resolution", {}).get("height", 720)
-        scale_x = props['width'] / float(ref_w)
-        scale_y = props['height'] / float(ref_h)
-        
-        src_px = cfg_src.copy()
-        src_px[:, 0] *= scale_x
-        src_px[:, 1] *= scale_y
-    else:
-        # Default bounding trapezoid proportional to resolution
-        w, h = props['width'], props['height']
-        src_px = np.array([[w * 0.08, h * 0.28], [w * 0.92, h * 0.28], [w * 0.98, h * 0.97], [w * 0.02, h * 0.97]], dtype=np.float32)
-        dst_m = np.array([[0.0, 0.0], [105.0, 0.0], [105.0, 68.0], [0.0, 68.0]], dtype=np.float32)
+    os.makedirs(output_dir, exist_ok=True)
+    out_broadcast = os.path.join(output_dir, "1_broadcast_tracking.mp4")
+    out_tactical = os.path.join(output_dir, "2_tactical_pitch_mapping.mp4")
 
-    homography = HomographyTransformer(src_px, dst_m)
-    
-    # 3. Instantiate Perception, Analytics & Visualization Modules
-    detector = FootballDetector(model_path=model_path, conf_threshold=conf_threshold, imgsz=imgsz, use_slicing=use_slicing)
-    tracker = FootballTracker(track_activation_threshold=conf_threshold)
-    team_assigner = TeamAssigner()
-    metrics_calc = KinematicMetricsCalculator(fps=props['fps'])
-    pitch_drawer = PitchDrawer()
-    heatmap_gen = PlayerHeatmapGenerator()
+    # 1. Read Video Frames
+    print(f"[INFO] Reading video frames: {input_video}")
+    video_frames = read_video(input_video)
+    if max_frames and len(video_frames) > max_frames:
+        video_frames = video_frames[:max_frames]
+        print(f"[INFO] Limiting processing to {max_frames} frames")
 
-    print(f"       Detection Model: {model_path} | Device: {detector.device.upper()} (FP16: {detector.half}) | Resolution: {imgsz}px | Stride: {frame_stride}")
+    if not video_frames:
+        print("[ERROR] No frames loaded!")
+        return
 
-    # 4. Process Video Frame by Frame
-    cap = cv2.VideoCapture(input_video)
-    video_writer = None
-    frame_idx = 0
+    # 2. Initialize Tracker & Detect Tracks
+    print("[INFO] Running YOLOv8 + ByteTrack Object Tracking...")
+    tracker = Tracker(model_path=model_path)
+    stub_path = os.path.join(output_dir, "stubs_tracks.pkl")
+    tracks = tracker.get_object_tracks(video_frames, read_from_stub=True, stub_path=stub_path)
 
-    total = min(props['total_frames'], max_frames) if max_frames else props['total_frames']
-    pbar = tqdm(total=total, desc="[PROCESSING FRAMES]")
+    # Interpolate Ball Positions
+    tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
 
-    cached_tracked_dets = None
-    cached_valid_pitch_positions_m = {}
+    # 3. Camera Movement Estimation (Optical Flow)
+    print("[INFO] Estimating Camera Motion (Lucas-Kanade Optical Flow)...")
+    camera_movement_estimator = CameraMovementEstimator(video_frames[0])
+    cam_stub_path = os.path.join(output_dir, "stubs_camera_movement.pkl")
+    camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
+        video_frames, read_from_stub=True, stub_path=cam_stub_path
+    )
+    camera_movement_estimator.add_adjust_positions_to_tracks(tracks, camera_movement_per_frame)
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    # 4. View Transformation (Pixels -> 2D Pitch Canvas Meters)
+    print("[INFO] Applying View Transformation (Homography Perspective Matrix)...")
+    view_transformer = ViewTransformer()
+    view_transformer.add_transformed_position_to_tracks(tracks)
 
-        # Run Detection & Tracking on stride frames
-        if frame_idx % frame_stride == 0 or cached_tracked_dets is None:
-            detections = detector.detect_frame(frame)
-            players_refs_dets, ball_dets = detector.separate_detections(detections)
-            cached_tracked_dets = tracker.update(players_refs_dets)
-            
-            # Foot positions & Homography Transformation (Pixels -> Meters)
-            foot_positions_px = tracker.get_foot_positions(cached_tracked_dets)
-            cached_valid_pitch_positions_m = {}
-            for track_id, px in foot_positions_px.items():
-                pos_m = homography.pixel_to_pitch(px)[0]
-                if homography.is_inside_pitch(pos_m, margin=2.0):
-                    cached_valid_pitch_positions_m[track_id] = pos_m
+    # 5. Speed and Distance Estimation
+    print("[INFO] Calculating Speed (km/h) & Distance (meters)...")
+    speed_and_distance_estimator = SpeedAndDistanceEstimator(fps=25.0)
+    speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
 
-            if len(cached_tracked_dets) > 0:
-                team_assigner.update(frame, cached_tracked_dets, cached_valid_pitch_positions_m)
+    # 6. Team Assignment (Red Jersey Filtering / KMeans Clustering)
+    print(f"[INFO] Assigning Player Teams (Target Color: {color.upper()})...")
+    team_assigner = TeamAssigner(target_color=color)
+    if len(tracks["players"]) > 0:
+        team_assigner.assign_team_color(video_frames[0], tracks["players"][0])
 
-        # Update Kinematic Metrics (only for active on-pitch players)
-        metrics_calc.update_positions(frame_idx, cached_valid_pitch_positions_m)
+    for frame_num, player_track in enumerate(tracks["players"]):
+        for player_id, track_info in player_track.items():
+            team_id = team_assigner.get_player_team(
+                video_frames[frame_num], track_info["bbox"], player_id
+            )
+            tracks["players"][frame_num][player_id]["team"] = team_id
 
-        # Draw Annotations
-        annotated_frame = pitch_drawer.draw_player_ellipses(frame, cached_tracked_dets, team_assigner, metrics_calc)
-        split_view_frame = pitch_drawer.draw_tactical_pitch_overlay(
-            annotated_frame, cached_valid_pitch_positions_m, metrics_calc, team_assigner, homography
-        )
+    # 7. Draw Annotations & Save Output Videos
+    print("[INFO] Drawing Annotations & Rendering Output Videos...")
 
-        # Stream frame directly to disk to maintain O(1) memory usage
-        if video_writer is None:
-            h_out, w_out, _ = split_view_frame.shape
-            video_writer = VideoWriterStream(output_video, fps=props['fps'], frame_size=(w_out, h_out))
+    # Output 1: Broadcast Video
+    output_broadcast_frames = tracker.draw_annotations(video_frames, tracks, target_team=target_team)
+    output_broadcast_frames = camera_movement_estimator.draw_camera_movement(output_broadcast_frames, camera_movement_per_frame)
+    output_broadcast_frames = speed_and_distance_estimator.draw_speed_and_distance(output_broadcast_frames, tracks)
+    save_video(output_broadcast_frames, out_broadcast)
 
-        video_writer.write(split_view_frame)
-        frame_idx += 1
-        pbar.update(1)
-        
-        if max_frames and frame_idx >= max_frames:
-            break
-
-    cap.release()
-    if video_writer is not None:
-        video_writer.release()
-    pbar.close()
-
-    # 5. Generate Individual Key Player 2D Pitch Spatial Heatmaps
-    if generate_heatmaps:
-        out_dir = os.path.dirname(os.path.abspath(output_video))
-        heatmap_paths = heatmap_gen.auto_generate_key_player_heatmaps(metrics_calc, team_assigner, output_dir=out_dir)
-        print(f"[INFO] Key player 2D pitch spatial heatmaps generated: {heatmap_paths}")
-
-    # 6. Export Metrics Summary CSV (Optional)
-    if output_csv:
-        df_summary = metrics_calc.export_summary_dataframe()
-        df_summary.to_csv(output_csv, index=False)
-        print(f"[INFO] Performance metrics summary exported to: {output_csv}")
+    # Output 2: Standalone 2D Tactical Pitch Video
+    output_tactical_frames = tracker.draw_2d_tactical_pitch(video_frames, tracks, target_team=target_team)
+    save_video(output_tactical_frames, out_tactical)
 
     print("\n[SUCCESS] Pipeline execution complete!")
+    print(f"Output 1 (Broadcast Video): {out_broadcast}")
+    print(f"Output 2 (2D Tactical Pitch Video): {out_tactical}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Football Performance Analytics Video Pipeline")
-    parser.add_argument("--input", type=str, required=True, help="Path to input video clip (.mp4)")
-    parser.add_argument("--output", type=str, default="data/output/output_annotated.mp4", help="Path to output video (.mp4)")
-    parser.add_argument("--csv", type=str, default=None, help="Optional path to export CSV summary")
-    parser.add_argument("--model", type=str, default="yolov8m.pt", help="Path or name of YOLO model (e.g. yolov8m.pt, yolov8x.pt)")
-    parser.add_argument("--imgsz", type=int, default=1280, help="Inference resolution size (default: 1280 for wide-angle clips)")
-    parser.add_argument("--conf", type=float, default=0.15, help="Detection confidence threshold")
-    parser.add_argument("--stride", type=int, default=2, help="Frame stride subsampling (default: 2 for 25 FPS processing)")
+    parser = argparse.ArgumentParser(description="Abdullah Tarek Football Analysis Pipeline")
+    parser.add_argument("--input", type=str, default="data/input/new_match_red_team_1080p.mp4", help="Input video path")
+    parser.add_argument("--output_dir", type=str, default="data/output", help="Output directory")
+    parser.add_argument("--model", type=str, default="models/yolov8x.pt", help="YOLO model weights path")
+    parser.add_argument("--color", type=str, default="red", help="Target team jersey color (red)")
+    parser.add_argument("--team", type=int, default=1, help="Target team ID (default: 1 for Red Team focus, 0 for all)")
     parser.add_argument("--max_frames", type=int, default=None, help="Optional max frames limit")
     args = parser.parse_args()
 
-    run_pipeline(args.input, args.output, args.csv, max_frames=args.max_frames,
-                 model_path=args.model, imgsz=args.imgsz, conf_threshold=args.conf,
-                 frame_stride=args.stride)
+    main(args.input, args.output_dir, args.model, args.color, args.team, args.max_frames)
