@@ -1,5 +1,19 @@
 # Development Log
 
+## [2026-07-27] - PyTorch CUDA 12.4 Upgrade & RTX 3050 GPU Acceleration
+- **Action**: Installed `torch-2.6.0+cu124` and `torchvision-0.21.0+cu124` compiled for CUDA 12.4.
+- **Result**: Enabled hardware GPU acceleration on **NVIDIA GeForce RTX 3050 6GB Laptop GPU**, accelerating high-resolution sliced inference speed to ~2.87 frames/sec.
+
+## [2026-07-27] - 2D Pitch Spatial Heatmap Generator (`src/analytics/heatmap.py`)
+- **Action**: Built `PlayerHeatmapGenerator` using 2D Gaussian Kernel Density Estimation on FIFA $105\text{m} \times 68\text{m}$ tactical pitch graphics.
+- **Feature**: Automatically selects the most active key player from Team 1 and Team 2 and exports high-resolution post-match PNG heatmaps (`data/output/heatmap_team1_player_X.png`, `data/output/heatmap_team2_player_Y.png`).
+
+## [2026-07-27] - Sliced Tiling (SAHI), CIELAB Team Segregation & Sideline Filtering
+- **Action**:
+  1. Implemented Sliced Tiling (`detect_frame_sliced`) in `src/perception/detector.py` to detect small distant players (<15px) in wide-angle tactical cam shots.
+  2. Upgraded `TeamAssigner` with 12-D CIELAB + HSV Dual-Crop (Jersey + Shorts) feature extraction and Ref/GK classification.
+  3. Added pitch boundary filtering (`is_inside_pitch`) in `src/geometry/homography.py` to filter out sideline coaches and substitutes from 2D tactical maps.
+
 ## [2026-07-24] - Real YouTube Video 2:30 Clips Processing & Performance Analysis
 - **Action**:
   1. Extracted two 2-minute-30-second clips (total 5 minutes of tactical match footage) from YouTube target video `https://youtu.be/9x02ovOrZmM`:
