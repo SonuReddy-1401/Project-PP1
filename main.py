@@ -14,11 +14,13 @@ from src.perception.team_assigner import TeamAssigner
 from src.geometry.homography import HomographyTransformer
 from src.geometry.pitch_template import TacticalPitchTemplate
 from src.analytics.metrics import KinematicMetricsCalculator
+from src.analytics.heatmap import PlayerHeatmapGenerator
 from src.visualization.drawers import PitchDrawer
 
 def run_pipeline(input_video: str, output_video: str, output_csv: str = None, 
                  config_path: str = "configs/pitch_config.json", max_frames: int = None,
-                 model_path: str = "yolov8m.pt", imgsz: int = 1280, conf_threshold: float = 0.15):
+                 model_path: str = "yolov8m.pt", imgsz: int = 1280, conf_threshold: float = 0.15,
+                 use_slicing: bool = True, generate_heatmaps: bool = True):
     print("=" * 70)
     print("      INTELLIGENT FOOTBALL PERFORMANCE ANALYSIS PIPELINE      ")
     print("=" * 70)
@@ -27,7 +29,6 @@ def run_pipeline(input_video: str, output_video: str, output_csv: str = None,
     props = get_video_properties(input_video)
     print(f"[INFO] Processing Video: {input_video}")
     print(f"       Resolution: {props['width']}x{props['height']} | FPS: {props['fps']} | Total Frames: {props['total_frames']}")
-    print(f"       Detection Model: {model_path} | Inference Resolution: {imgsz}px | Conf Threshold: {conf_threshold}")
 
     # 2. Config & Homography Setup
     if os.path.exists(config_path):
@@ -54,11 +55,14 @@ def run_pipeline(input_video: str, output_video: str, output_csv: str = None,
     homography = HomographyTransformer(src_px, dst_m)
     
     # 3. Instantiate Perception, Analytics & Visualization Modules
-    detector = FootballDetector(model_path=model_path, conf_threshold=conf_threshold, imgsz=imgsz)
+    detector = FootballDetector(model_path=model_path, conf_threshold=conf_threshold, imgsz=imgsz, use_slicing=use_slicing)
     tracker = FootballTracker(track_activation_threshold=conf_threshold)
     team_assigner = TeamAssigner()
     metrics_calc = KinematicMetricsCalculator(fps=props['fps'])
     pitch_drawer = PitchDrawer()
+    heatmap_gen = PlayerHeatmapGenerator()
+
+    print(f"       Detection Model: {model_path} | Device: {detector.device.upper()} | Inference Resolution: {imgsz}px | Sliced Tiling: {use_slicing}")
 
     # 4. Process Video Frame by Frame
     cap = cv2.VideoCapture(input_video)
@@ -119,20 +123,25 @@ def run_pipeline(input_video: str, output_video: str, output_csv: str = None,
         video_writer.release()
     pbar.close()
 
-    # 5. Export Metrics Summary CSV
-    df_summary = metrics_calc.export_summary_dataframe()
+    # 5. Generate Individual Key Player 2D Pitch Spatial Heatmaps
+    if generate_heatmaps:
+        out_dir = os.path.dirname(os.path.abspath(output_video))
+        heatmap_paths = heatmap_gen.auto_generate_key_player_heatmaps(metrics_calc, team_assigner, output_dir=out_dir)
+        print(f"[INFO] Key player 2D pitch spatial heatmaps generated: {heatmap_paths}")
+
+    # 6. Export Metrics Summary CSV (Optional)
     if output_csv:
+        df_summary = metrics_calc.export_summary_dataframe()
         df_summary.to_csv(output_csv, index=False)
         print(f"[INFO] Performance metrics summary exported to: {output_csv}")
 
     print("\n[SUCCESS] Pipeline execution complete!")
-    print(df_summary.head(10))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Football Performance Analytics Video Pipeline")
     parser.add_argument("--input", type=str, required=True, help="Path to input video clip (.mp4)")
     parser.add_argument("--output", type=str, default="data/output/output_annotated.mp4", help="Path to output video (.mp4)")
-    parser.add_argument("--csv", type=str, default="data/output/metrics_summary.csv", help="Path to export CSV summary")
+    parser.add_argument("--csv", type=str, default=None, help="Optional path to export CSV summary")
     parser.add_argument("--model", type=str, default="yolov8m.pt", help="Path or name of YOLO model (e.g. yolov8m.pt, yolov8x.pt)")
     parser.add_argument("--imgsz", type=int, default=1280, help="Inference resolution size (default: 1280 for wide-angle clips)")
     parser.add_argument("--conf", type=float, default=0.15, help="Detection confidence threshold")
