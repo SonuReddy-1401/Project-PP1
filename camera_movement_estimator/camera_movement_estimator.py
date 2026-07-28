@@ -1,49 +1,44 @@
-import cv2
-import numpy as np
 import os
 import pickle
+import cv2
+import numpy as np
 
 class CameraMovementEstimator:
     """
     Camera Movement Estimator matching Abdullah Tarek's football_analysis repository.
     Uses Pyramidal Lucas-Kanade Optical Flow on pitch grass background pixels to estimate frame-by-frame
     camera movement (dx, dy) and adjusts object tracking positions.
+    Supports low-RAM streaming (<500 MB) for long 5-minute+ broadcast clips.
     """
-    def __init__(self, frame: np.ndarray):
+    def __init__(self, frame: np.ndarray = None):
         self.minimum_distance = 5
         self.lk_params = dict(
             winSize=(15, 15),
             maxLevel=2,
             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
         )
-        
-        # Features to track on background pitch grass
-        h, w, _ = frame.shape
-        mask = np.zeros((h, w), dtype=np.uint8)
-        # Select pitch region (avoiding scoreboards and top broadcast bars)
-        mask[int(h * 0.20):int(h * 0.95), :] = 255
-        
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        features = cv2.goodFeaturesToTrack(
-            gray, maxCorners=100, qualityLevel=0.3, minDistance=30, blockSize=7, mask=mask
-        )
-        self.features = features
+        self.features = None
+        if frame is not None:
+            h, w, _ = frame.shape
+            mask = np.zeros((h, w), dtype=np.uint8)
+            mask[int(h * 0.20):int(h * 0.95), :] = 255
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            self.features = cv2.goodFeaturesToTrack(
+                gray, maxCorners=100, qualityLevel=0.3, minDistance=30, blockSize=7, mask=mask
+            )
 
     def add_adjust_positions_to_tracks(self, tracks: dict, camera_movement_per_frame: list):
         """
-        Adjusts track positions for players, referees, and ball by subtracting camera displacement.
+        Adjusts player, referee, and ball coordinates based on accumulated camera movement.
         """
-        from utils.bbox_utils import get_center_of_bbox, get_foot_position
         for object_type, object_tracks in tracks.items():
             for frame_num, track_dict in enumerate(object_tracks):
                 for track_id, track_info in track_dict.items():
-                    position = track_info.get('position')
-                    if position is None:
-                        bbox = track_info.get('bbox')
-                        if bbox and len(bbox) == 4:
-                            position = get_center_of_bbox(bbox) if object_type == "ball" else get_foot_position(bbox)
-                        else:
-                            continue
+                    position = track_info['position']
+                    if frame_num >= len(camera_movement_per_frame):
+                        if 'position_adjusted' not in tracks[object_type][frame_num][track_id]:
+                            tracks[object_type][frame_num][track_id]['position_adjusted'] = position
+                        continue
                     camera_movement = camera_movement_per_frame[frame_num]
                     position_adjusted = (
                         position[0] - camera_movement[0],
@@ -52,28 +47,51 @@ class CameraMovementEstimator:
                     tracks[object_type][frame_num][track_id]['position'] = position
                     tracks[object_type][frame_num][track_id]['position_adjusted'] = position_adjusted
 
-    def get_camera_movement(self, frames: list, read_from_stub: bool = False, stub_path: str = None):
+    def get_camera_movement(self, video_input: str, read_from_stub: bool = False, stub_path: str = None, max_frames: int = None):
         """
-        Calculates frame-by-frame camera movement (dx, dy). Supports pickle stub caching.
+        Calculates frame-by-frame camera movement (dx, dy) by streaming video. Supports pickle stub caching.
         """
         if read_from_stub and stub_path is not None and os.path.exists(stub_path):
             with open(stub_path, 'rb') as f:
                 print(f"[INFO] Loaded camera movement from stub: {stub_path}")
                 return pickle.load(f)
 
-        camera_movement = [[0.0, 0.0] for _ in range(len(frames))]
-        if len(frames) == 0:
+        cap = cv2.VideoCapture(video_input)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if max_frames:
+            total_frames = min(total_frames, max_frames)
+
+        camera_movement = [[0.0, 0.0] for _ in range(total_frames)]
+
+        ret, first_frame = cap.read()
+        if not ret:
+            cap.release()
             return camera_movement
 
-        old_gray = cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY)
+        # Initialize features on first frame
+        h, w, _ = first_frame.shape
+        mask = np.zeros((h, w), dtype=np.uint8)
+        mask[int(h * 0.20):int(h * 0.95), :] = 255
+        old_gray = cv2.cvtColor(first_frame, cv2.COLOR_BGR2GRAY)
+        self.features = cv2.goodFeaturesToTrack(
+            old_gray, maxCorners=100, qualityLevel=0.3, minDistance=30, blockSize=7, mask=mask
+        )
 
         from tqdm import tqdm
-        for frame_num in tqdm(range(1, len(frames)), desc="[5/5] Lucas-Kanade Camera Motion Estimator"):
-            frame = frames[frame_num]
+        pbar = tqdm(total=total_frames - 1, desc="[2/4] Lucas-Kanade Camera Motion Estimator")
+
+        frame_num = 1
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret or (max_frames and frame_num >= max_frames):
+                break
+
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             if self.features is None or len(self.features) == 0:
                 old_gray = frame_gray.copy()
+                pbar.update(1)
+                frame_num += 1
                 continue
 
             new_features, status, err = cv2.calcOpticalFlowPyrLK(
@@ -96,9 +114,8 @@ class CameraMovementEstimator:
                         camera_movement_y = diff[1]
 
             if max_distance > self.minimum_distance:
-                camera_movement[frame_num] = [camera_movement_x, camera_movement_y]
-                # Update features
-                h, w = frame.shape[:2]
+                if frame_num < len(camera_movement):
+                    camera_movement[frame_num] = [camera_movement_x, camera_movement_y]
                 mask = np.zeros((h, w), dtype=np.uint8)
                 mask[int(h * 0.20):int(h * 0.95), :] = 255
                 self.features = cv2.goodFeaturesToTrack(
@@ -106,6 +123,11 @@ class CameraMovementEstimator:
                 )
 
             old_gray = frame_gray.copy()
+            pbar.update(1)
+            frame_num += 1
+
+        cap.release()
+        pbar.close()
 
         if stub_path is not None:
             os.makedirs(os.path.dirname(os.path.abspath(stub_path)), exist_ok=True)
@@ -114,25 +136,3 @@ class CameraMovementEstimator:
                 print(f"[INFO] Saved camera movement stub to: {stub_path}")
 
         return camera_movement
-
-    def draw_camera_movement(self, frames: list, camera_movement_per_frame: list):
-        """
-        Draws camera movement text banner on top-left of output frames.
-        """
-        output_frames = []
-        for frame_num, frame in enumerate(frames):
-            frame_copy = frame.copy()
-            overlay = frame_copy.copy()
-            cv2.rectangle(overlay, (10, 10), (320, 60), (0, 0, 0), -1)
-            alpha = 0.6
-            cv2.addWeighted(overlay, alpha, frame_copy, 1 - alpha, 0, frame_copy)
-
-            movement = camera_movement_per_frame[frame_num]
-            text_x = f"Camera Movement X: {movement[0]:.2f}"
-            text_y = f"Camera Movement Y: {movement[1]:.2f}"
-            cv2.putText(frame_copy, text_x, (20, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            cv2.putText(frame_copy, text_y, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
-            output_frames.append(frame_copy)
-
-        return output_frames

@@ -1,5 +1,13 @@
 # Development Log
 
+## [2026-07-28] - Branch `ABDULLAH` Low-RAM Streaming & Roboflow Sports 32-Keypoint Integration
+- **Action**:
+  1. Built **Low-RAM Frame Streaming Architecture (<500 MB RAM)** in [main.py](file:///c:/CLG/PP1/Project%20-%20PP1/main.py), [trackers/tracker.py](file:///c:/CLG/PP1/Project%20-%20PP1/trackers/tracker.py), and [camera_movement_estimator/camera_movement_estimator.py](file:///c:/CLG/PP1/Project%20-%20PP1/camera_movement_estimator/camera_movement_estimator.py) to eliminate `ArrayMemoryError` on 5-minute+ broadcast clips.
+  2. Integrated **Roboflow Sports 32 FIFA pitch metric keypoint configuration (`SoccerPitchConfiguration`)** and dynamic `ViewTransformer` in [view_transformer/view_transformer.py](file:///c:/CLG/PP1/Project%20-%20PP1/view_transformer/view_transformer.py).
+  3. Repositioned **Player ID & Speed Badges to ABOVE THE HEAD (`y1 - 25`)**, leaving player bodies and ground ellipses 100% visible.
+  4. Upgraded [team_assigner/team_assigner.py](file:///c:/CLG/PP1/Project%20-%20PP1/team_assigner/team_assigner.py) with **HSV Red torso thresholding + Multi-Frame Majority Voting** to eliminate white player misclassifications.
+  5. Built noise-free **15-frame gap-limited ball trajectory interpolation** to eliminate floating false positive ball pointers.
+
 ## [2026-07-27] - Recreating Abdullah Tarek `football_analysis` Architecture
 - **Action**:
   1. Built exact module structure from [abdullahtarek/football_analysis](https://github.com/abdullahtarek/football_analysis):

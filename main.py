@@ -3,14 +3,13 @@ import argparse
 import cv2
 import numpy as np
 
-from utils.video_utils import read_video, save_video
 from trackers.tracker import Tracker
 from camera_movement_estimator.camera_movement_estimator import CameraMovementEstimator
 from team_assigner.team_assigner import TeamAssigner
 from view_transformer.view_transformer import ViewTransformer
 from speed_and_distance_estimator.speed_and_distance_estimator import SpeedAndDistanceEstimator
 
-def main(input_video: str = "data/input/new_match_red_team_1080p.mp4",
+def main(input_video: str = "data/input/match_5min_1080p.mp4",
          output_dir: str = "data/output",
          model_path: str = "models/yolov8x.pt",
          color: str = "red",
@@ -18,79 +17,70 @@ def main(input_video: str = "data/input/new_match_red_team_1080p.mp4",
          max_frames: int = None):
 
     print("=" * 70)
-    print("   ABDULLAH TAREK FOOTBALL ANALYSIS PIPELINE RECREATION   ")
+    print("   ABDULLAH TAREK FOOTBALL ANALYSIS PIPELINE (LOW-RAM STREAMING <500MB)   ")
     print("=" * 70)
 
     os.makedirs(output_dir, exist_ok=True)
     out_broadcast = os.path.join(output_dir, "1_broadcast_tracking.mp4")
     out_tactical = os.path.join(output_dir, "2_tactical_pitch_mapping.mp4")
 
-    # 1. Read Video Frames
-    print(f"[INFO] Reading video frames: {input_video}")
-    video_frames = read_video(input_video)
-    if max_frames and len(video_frames) > max_frames:
-        video_frames = video_frames[:max_frames]
-        print(f"[INFO] Limiting processing to {max_frames} frames")
-
-    if not video_frames:
-        print("[ERROR] No frames loaded!")
-        return
-
-    # 2. Initialize Tracker & Detect Tracks
-    print("[INFO] Running YOLOv8 + ByteTrack Object Tracking...")
+    # 1. Initialize Tracker & Detect Tracks via Stream
+    print("[INFO] Running YOLOv8 + ByteTrack Object Tracking (Stream)...")
     tracker = Tracker(model_path=model_path)
     stub_path = os.path.join(output_dir, "stubs_tracks.pkl")
-    tracks = tracker.get_object_tracks(video_frames, read_from_stub=True, stub_path=stub_path)
+    tracks = tracker.get_object_tracks(input_video, read_from_stub=True, stub_path=stub_path, max_frames=max_frames)
 
     # Interpolate Ball Positions
     tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
 
-    # 3. Camera Movement Estimation (Optical Flow)
-    print("[INFO] Estimating Camera Motion (Lucas-Kanade Optical Flow)...")
-    camera_movement_estimator = CameraMovementEstimator(video_frames[0])
+    # 2. Camera Movement Estimation (Optical Flow Stream)
+    print("[INFO] Estimating Camera Motion (Lucas-Kanade Optical Flow Stream)...")
     cam_stub_path = os.path.join(output_dir, "stubs_camera_movement.pkl")
+    camera_movement_estimator = CameraMovementEstimator(None)
     camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
-        video_frames, read_from_stub=True, stub_path=cam_stub_path
+        input_video, read_from_stub=True, stub_path=cam_stub_path, max_frames=max_frames
     )
     camera_movement_estimator.add_adjust_positions_to_tracks(tracks, camera_movement_per_frame)
 
-    # 4. View Transformation (Pixels -> 2D Pitch Canvas Meters)
-    print("[INFO] Applying View Transformation (Homography Perspective Matrix)...")
+    # 3. View Transformation (Pixels -> 2D Pitch Canvas Meters)
+    print("[INFO] Applying View Transformation (Roboflow Sports Homography Matrix)...")
     view_transformer = ViewTransformer()
     view_transformer.add_transformed_position_to_tracks(tracks)
 
-    # 5. Speed and Distance Estimation
+    # 4. Speed and Distance Estimation
     print("[INFO] Calculating Speed (km/h) & Distance (meters)...")
     speed_and_distance_estimator = SpeedAndDistanceEstimator(fps=25.0)
     speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
 
-    # 6. Team Assignment (Red Jersey Filtering / KMeans Clustering)
+    # 5. Team Assignment (Red Jersey Filtering / KMeans Clustering)
     print(f"[INFO] Assigning Player Teams (Target Color: {color.upper()})...")
     team_assigner = TeamAssigner(target_color=color)
-    if len(tracks["players"]) > 0:
-        team_assigner.assign_team_color(video_frames[0], tracks["players"][0])
+    cap = cv2.VideoCapture(input_video)
+    ret, frame_0 = cap.read()
+    cap.release()
 
-    for frame_num, player_track in enumerate(tracks["players"]):
+    if ret and len(tracks["players"]) > 0:
+        team_assigner.assign_team_color(frame_0, tracks["players"][0])
+
+    cap = cv2.VideoCapture(input_video)
+    frame_idx = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret or (max_frames and frame_idx >= max_frames) or frame_idx >= len(tracks["players"]):
+            break
+        player_track = tracks["players"][frame_idx]
         for player_id, track_info in player_track.items():
-            team_id = team_assigner.get_player_team(
-                video_frames[frame_num], track_info["bbox"], player_id
-            )
-            tracks["players"][frame_num][player_id]["team"] = team_id
+            team_id = team_assigner.get_player_team(frame, track_info["bbox"], player_id)
+            tracks["players"][frame_idx][player_id]["team"] = team_id
+        frame_idx += 1
+    cap.release()
 
-    # 7. Draw Annotations & Save Output Videos
-    print("[INFO] Drawing Annotations & Rendering Output Videos...")
+    # 6. Stream Render Output Videos Directly to File
+    print("[INFO] Rendering Output Videos (Direct Stream to MP4)...")
+    tracker.render_broadcast_video_stream(input_video, out_broadcast, tracks, camera_movement_per_frame, target_team=target_team)
+    tracker.render_tactical_pitch_stream(out_tactical, tracks, target_team=target_team)
 
-    # Output 1: Broadcast Video
-    output_broadcast_frames = tracker.draw_annotations(video_frames, tracks, target_team=target_team)
-    output_broadcast_frames = camera_movement_estimator.draw_camera_movement(output_broadcast_frames, camera_movement_per_frame)
-    output_broadcast_frames = speed_and_distance_estimator.draw_speed_and_distance(output_broadcast_frames, tracks)
-    save_video(output_broadcast_frames, out_broadcast)
-
-    # Output 2: Standalone 2D Tactical Pitch Video
-    output_tactical_frames = tracker.draw_2d_tactical_pitch(video_frames, tracks, target_team=target_team)
-    save_video(output_tactical_frames, out_tactical)
-
-    print("\n[SUCCESS] Pipeline execution complete!")
+    print("\n[SUCCESS] 5-Minute Pipeline execution complete!")
     print(f"Output 1 (Broadcast Video): {out_broadcast}")
     print(f"Output 2 (2D Tactical Pitch Video): {out_tactical}")
 
