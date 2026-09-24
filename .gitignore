@@ -1,15 +1,28 @@
-# Python virtual environments & bytecode
+# Ignore all specific files and folders present in EXP
+1-Pitch-Segmentation/
+2-Pitch-Calibration-Clean/
+3-Pitch-Segmentation-2/
+4-Pitch-Segmentation-3/
+5-PnLCalib/
+6-Player-Detection/
+O/
+Outputs/
+Player-Detection/
+Phase1-2_Technical_Report.md
+team_shape_chart.png
 .venv/
-*/.venv/
-**/.venv/
-venv/
-env/
+
+# Catch-all: Ignore all files and folders in EXP directory except .gitignore itself
+*
+!.gitignore
+
+# Python virtual environments & bytecode
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Heavy video and image data files
+# Media and binary files
 *.mp4
 *.avi
 *.mov
@@ -18,8 +31,6 @@ __pycache__/
 *.jpeg
 *.png
 *.bmp
-
-# Heavy model weight checkpoints & binaries
 *.pt
 *.pth
 *.weights
@@ -27,43 +38,6 @@ __pycache__/
 *.onnx
 *.bin
 *.pkl
-SV_kp
-SV_lines
-
-# Heavy dataset & output content inside component subfolders
-# Allow Git to track README.md in these folders to preserve directory structure
-Pitch-Calibration-Clean/data/*
-!Pitch-Calibration-Clean/data/README.md
-Pitch-Calibration-Clean/output/*
-!Pitch-Calibration-Clean/output/README.md
-
-Pitch-Segmentation/data/*
-!Pitch-Segmentation/data/README.md
-Pitch-Segmentation/output/*
-!Pitch-Segmentation/output/README.md
-Pitch-Segmentation/weights/*
-!Pitch-Segmentation/weights/README.md
-
-Pitch-Segmentation-2/data/*
-!Pitch-Segmentation-2/data/README.md
-Pitch-Segmentation-2/output/*
-!Pitch-Segmentation-2/output/README.md
-
-Pitch-Segmentation-3/weights/*
-!Pitch-Segmentation-3/weights/README.md
-
-Player-Detection/output/*
-!Player-Detection/output/README.md
-Player-Detection/OUTPUTS/*
-!Player-Detection/OUTPUTS/README.md
-Player-Detection/logo_check/
-
-PnLCalib/data/*
-!PnLCalib/data/README.md
-PnLCalib/output/*
-!PnLCalib/output/README.md
-PnLCalib/weights/*
-!PnLCalib/weights/README.md
 
 # System files & IDE configs
 .DS_Store
