@@ -1,0 +1,27 @@
+{
+  "video_path": "S:\\CLG\\PP1\\EXP\\NEXT\\Match_data\\clip_15min_napoli_roma.mp4",
+  "sample_frames_count": 30,
+  "total_samples_collected": 659,
+  "centroids": [
+    {
+      "cluster_id": 0,
+      "hue": 23.85,
+      "saturation": 140.33,
+      "feature_vector": [
+        0.6280356342036355,
+        0.690078729415039,
+        0.5503072870939417
+      ]
+    },
+    {
+      "cluster_id": 1,
+      "hue": 115.24,
+      "saturation": 91.64,
+      "feature_vector": [
+        -0.6278367234456094,
+        -0.7611120146714853,
+        0.3593681917211328
+      ]
+    }
+  ]
+}

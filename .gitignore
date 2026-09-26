@@ -1,47 +1,14 @@
-# Ignore all specific files and folders present in EXP
-1-Pitch-Segmentation/
-2-Pitch-Calibration-Clean/
-3-Pitch-Segmentation-2/
-4-Pitch-Segmentation-3/
-5-PnLCalib/
-6-Player-Detection/
-O/
-Outputs/
-Player-Detection/
-Phase1-2_Technical_Report.md
-team_shape_chart.png
-.venv/
+# Ignore everything in the root directory
+/*
 
-# Catch-all: Ignore all files and folders in EXP directory except .gitignore itself
-*
+# Allow NEXT folder
+!/NEXT/
+
+# Ignore everything inside NEXT
+/NEXT/*
+
+# Allow 05_Interactive_Dashboard inside NEXT
+!/NEXT/05_Interactive_Dashboard/
+
+# Allow .gitignore file
 !.gitignore
-
-# Python virtual environments & bytecode
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Media and binary files
-*.mp4
-*.avi
-*.mov
-*.mkv
-*.jpg
-*.jpeg
-*.png
-*.bmp
-*.pt
-*.pth
-*.weights
-*.h5
-*.onnx
-*.bin
-*.pkl
-
-# System files & IDE configs
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-*.tmp
