@@ -1,41 +1,43 @@
-/* CSS Reset & Design System Tokens (Opta / StatsBomb Aesthetic with Light & Dark Modes) */
+/* CSS Reset & Dark Glass Clean Layout Design System (Adhering to `dark-glass-clean-layout` & `optimize-web-animations` skills) */
 :root {
-  --bg-color: #FAFAF8;
-  --card-bg: #FFFFFF;
-  --card-border: #E5E5E0;
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --text-primary: #1A1A1A;
-  --text-secondary: #6B6B6B;
+  --bg-color: #F8FAF9;
+  --card-bg: rgba(255, 255, 255, 0.82);
+  --card-border: rgba(229, 229, 224, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
   --pitch-surface: #E8EDE4;
   --pitch-line: #8A9186;
   --team-accent: #0284c7;
-  --sidebar-width: 230px;
-  --coach-bg: rgba(2, 132, 199, 0.08);
-  --coach-border: rgba(2, 132, 199, 0.25);
+  --sidebar-width: 240px;
+  --coach-bg: rgba(2, 132, 199, 0.06);
+  --coach-border: rgba(2, 132, 199, 0.22);
   --coach-title: #0369a1;
   --coach-text: #0f172a;
-  --banner-bg: #F4F4F0;
-  --table-header-bg: #F4F4F0;
-  --table-even-bg: #FBFBFA;
+  --banner-bg: rgba(244, 244, 240, 0.75);
+  --table-header-bg: rgba(244, 244, 240, 0.9);
+  --table-even-bg: rgba(251, 251, 250, 0.6);
 }
 
 [data-theme="dark"] {
-  --bg-color: #0F172A;
-  --card-bg: #1E293B;
-  --card-border: #334155;
-  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --bg-color: #090D16;
+  --card-bg: rgba(26, 34, 52, 0.65);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
-  --pitch-surface: #17251D;
-  --pitch-line: #475569;
+  --pitch-surface: #131E17;
+  --pitch-line: #334155;
   --team-accent: #38BDF8;
-  --coach-bg: rgba(56, 189, 248, 0.12);
-  --coach-border: rgba(56, 189, 248, 0.35);
+  --coach-bg: rgba(56, 189, 248, 0.08);
+  --coach-border: rgba(56, 189, 248, 0.28);
   --coach-title: #38BDF8;
   --coach-text: #F1F5F9;
-  --banner-bg: #1A2234;
-  --table-header-bg: #0F172A;
-  --table-even-bg: #162032;
+  --banner-bg: rgba(30, 41, 59, 0.6);
+  --table-header-bg: rgba(15, 23, 42, 0.85);
+  --table-even-bg: rgba(30, 41, 59, 0.4);
 }
 
 * {
@@ -44,44 +46,72 @@
   padding: 0;
 }
 
+/* Canvas Background for Ambient Grid & Particle Atmosphere */
+#ambient-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+}
+
 body {
-  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-primary);
   display: flex;
   min-height: 100vh;
   line-height: 1.5;
   transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-x: hidden;
 }
 
-/* Sidebar Styling */
+/* Sidebar Styling (Frosted Glass Shell) */
 .sidebar {
   width: var(--sidebar-width);
-  background-color: var(--card-bg);
+  background: var(--card-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border-right: 1px solid var(--card-border);
-  padding: 24px 16px;
+  box-shadow: var(--card-shadow);
+  padding: 24px 18px;
   position: fixed;
   height: 100vh;
   overflow-y: auto;
   z-index: 100;
   display: flex;
   flex-direction: column;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--card-border);
+  position: relative;
 }
 
 .sidebar-brand {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10B981;
+  display: inline-block;
+  box-shadow: 0 0 8px #10B981;
 }
 
 .sidebar-title {
@@ -96,9 +126,10 @@ body {
 .team-badge-swatch {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: 3px;
   background-color: var(--team-accent);
   display: inline-block;
+  box-shadow: 0 0 10px var(--team-accent);
   transition: background-color 0.3s ease;
 }
 
@@ -106,34 +137,36 @@ body {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .nav-item button {
   width: 100%;
   text-align: left;
   background: none;
-  border: none;
+  border: 1px solid transparent;
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, background-color;
 }
 
 .nav-item button:hover {
-  background-color: var(--bg-color);
+  background-color: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
+  transform: translateX(2px);
 }
 
 .nav-item button.active {
-  background-color: var(--bg-color);
+  background-color: var(--coach-bg);
+  border-color: var(--coach-border);
   color: var(--team-accent);
   font-weight: 700;
-  border-left: 3px solid var(--team-accent);
-  padding-left: 9px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Theme Switcher Toggle Button in Sidebar */
@@ -148,7 +181,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: var(--bg-color);
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
   padding: 10px 14px;
   border-radius: 6px;
@@ -160,13 +195,14 @@ body {
 }
 
 .theme-toggle-btn:hover {
-  border-color: var(--text-secondary);
+  border-color: var(--team-accent);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
 }
 
 .theme-icon-box {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 /* Main Content Layout */
@@ -175,6 +211,8 @@ body {
   flex: 1;
   padding: 32px 40px;
   max-width: 1240px;
+  position: relative;
+  z-index: 10;
 }
 
 .section {
@@ -183,6 +221,12 @@ body {
 
 .section.active {
   display: block;
+  animation: fadeIn 0.35s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .section-title {
@@ -190,6 +234,7 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 6px;
+  letter-spacing: -0.01em;
   transition: color 0.3s ease;
 }
 
@@ -200,28 +245,31 @@ body {
   transition: color 0.3s ease;
 }
 
-/* Coach Callout Box ("What am I looking at") */
+/* Coach Callout Box ("What am I looking at") — Frosted Glass Shell */
 .coach-callout {
-  background-color: var(--coach-bg);
+  background: var(--coach-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid var(--coach-border);
   border-left: 4px solid var(--team-accent);
-  border-radius: 6px;
-  padding: 16px 20px;
+  border-radius: 8px;
+  padding: 18px 22px;
   margin-bottom: 24px;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  box-shadow: var(--card-shadow);
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .coach-callout-title {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--coach-title);
   margin-bottom: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: color 0.3s ease;
 }
 
 .coach-callout-text {
@@ -229,32 +277,48 @@ body {
   line-height: 1.55;
   color: var(--coach-text);
   font-weight: 450;
-  transition: color 0.3s ease;
 }
 
 /* Explanatory Banner */
 .info-banner {
-  background-color: var(--banner-bg);
+  background: var(--banner-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 14px 18px;
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: 20px;
-  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* Card System */
+/* Card System — Frosted Glass Shell */
 .card {
-  background-color: var(--card-bg);
+  background: var(--card-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid var(--card-border);
-  border-radius: 6px;
+  border-radius: 8px;
   box-shadow: var(--card-shadow);
   padding: 24px;
   margin-bottom: 24px;
-  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Architectural Corner Rails for Glass Shells */
+.card::before, .card::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-color: var(--team-accent);
+  opacity: 0.4;
+  pointer-events: none;
+}
+.card::before { top: 0; left: 0; border-top: 1px solid; border-left: 1px solid; }
+.card::after { bottom: 0; right: 0; border-bottom: 1px solid; border-right: 1px solid; }
 
 .card-title {
   font-size: 11px;
@@ -263,7 +327,6 @@ body {
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 12px;
-  transition: color 0.3s ease;
 }
 
 /* Metric & Stat Cards */
@@ -274,11 +337,19 @@ body {
 }
 
 .stat-card {
-  background-color: var(--card-bg);
+  background: var(--card-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid var(--card-border);
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
   padding: 20px;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--team-accent);
 }
 
 .stat-label {
@@ -288,7 +359,6 @@ body {
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 8px;
-  transition: color 0.3s ease;
 }
 
 .stat-value {
@@ -296,7 +366,6 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.1;
-  transition: color 0.3s ease;
 }
 
 .stat-unit {
@@ -322,25 +391,28 @@ body {
 }
 
 .btn {
-  background-color: var(--card-bg);
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
   padding: 8px 14px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn:hover {
-  border-color: var(--text-secondary);
+  border-color: var(--team-accent);
 }
 
 .btn-toggle.active {
   background-color: var(--team-accent);
   color: #FFFFFF;
   border-color: var(--team-accent);
+  box-shadow: 0 0 12px var(--team-accent);
 }
 
 .range-group {
@@ -357,10 +429,14 @@ input[type="range"] {
 }
 
 select {
-  background-color: var(--card-bg);
+  background: var(--card-bg);
   color: var(--text-primary);
-  border-color: var(--card-border);
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  border: 1px solid var(--card-border);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  outline: none;
+  cursor: pointer;
 }
 
 /* Tables */
@@ -368,16 +444,14 @@ select {
   margin-top: 16px;
   border-top: 1px solid var(--card-border);
   padding-top: 16px;
-  transition: border-color 0.3s ease;
 }
 
 .table-wrapper {
   max-height: 260px;
   overflow-y: auto;
   border: 1px solid var(--card-border);
-  border-radius: 4px;
+  border-radius: 6px;
   margin-top: 12px;
-  transition: border-color 0.3s ease;
 }
 
 table {
@@ -388,7 +462,8 @@ table {
 }
 
 th {
-  background-color: var(--table-header-bg);
+  background: var(--table-header-bg);
+  backdrop-filter: blur(8px);
   color: var(--text-secondary);
   font-weight: 700;
   font-size: 11px;
@@ -398,14 +473,12 @@ th {
   position: sticky;
   top: 0;
   border-bottom: 1px solid var(--card-border);
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 td {
   padding: 8px 14px;
   border-bottom: 1px solid var(--card-border);
   color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 tr:nth-child(even) {
@@ -417,16 +490,15 @@ tr:nth-child(even) {
   height: 480px;
 }
 
-/* Progressive Disclosure Technical Container */
+/* Technical Drawer */
 .technical-drawer {
   margin-top: 12px;
   padding: 14px;
-  background-color: var(--bg-color);
+  background: var(--banner-bg);
   border: 1px solid var(--card-border);
-  border-radius: 4px;
+  border-radius: 6px;
   font-family: monospace;
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
