@@ -104,11 +104,18 @@ function renderThirdsPlotData(rawDataset, metadata) {
     textposition: 'auto'
   }];
 
+  const isDark = isDarkMode();
+  const paperBg = isDark ? '#1E293B' : '#FFFFFF';
+  const plotBg = isDark ? '#0F172A' : '#FAFAF8';
+  const textColor = isDark ? '#F8FAFC' : '#1A1A1A';
+  const gridColor = isDark ? '#334155' : '#E5E5E0';
+
   const layout = {
-    title: { text: `Pitch-Thirds Team Centroid Occupancy — ${windowLabel}`, font: { size: 14, color: '#1A1A1A' } },
-    paper_bgcolor: '#FFFFFF',
-    plot_bgcolor: '#FAFAF8',
-    yaxis: { title: 'Occupancy Percentage (%)', range: [0, 80], gridcolor: '#E5E5E0' },
+    title: { text: `Pitch-Thirds Team Centroid Occupancy — ${windowLabel}`, font: { size: 14, color: textColor } },
+    paper_bgcolor: paperBg,
+    plot_bgcolor: plotBg,
+    xaxis: { tickfont: { color: textColor } },
+    yaxis: { title: { text: 'Occupancy Percentage (%)', font: { color: textColor } }, range: [0, 80], gridcolor: gridColor, tickfont: { color: textColor } },
     margin: { l: 50, r: 20, t: 40, b: 50 }
   };
 

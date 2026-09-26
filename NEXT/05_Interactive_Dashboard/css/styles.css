@@ -1,4 +1,4 @@
-/* CSS Reset & Design System Tokens (Opta / StatsBomb Aesthetic) */
+/* CSS Reset & Design System Tokens (Opta / StatsBomb Aesthetic with Light & Dark Modes) */
 :root {
   --bg-color: #FAFAF8;
   --card-bg: #FFFFFF;
@@ -8,8 +8,34 @@
   --text-secondary: #6B6B6B;
   --pitch-surface: #E8EDE4;
   --pitch-line: #8A9186;
-  --team-accent: #38bdf8; /* Derived from target team HSV centroid */
+  --team-accent: #0284c7;
   --sidebar-width: 230px;
+  --coach-bg: rgba(2, 132, 199, 0.08);
+  --coach-border: rgba(2, 132, 199, 0.25);
+  --coach-title: #0369a1;
+  --coach-text: #0f172a;
+  --banner-bg: #F4F4F0;
+  --table-header-bg: #F4F4F0;
+  --table-even-bg: #FBFBFA;
+}
+
+[data-theme="dark"] {
+  --bg-color: #0F172A;
+  --card-bg: #1E293B;
+  --card-border: #334155;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --pitch-surface: #17251D;
+  --pitch-line: #475569;
+  --team-accent: #38BDF8;
+  --coach-bg: rgba(56, 189, 248, 0.12);
+  --coach-border: rgba(56, 189, 248, 0.35);
+  --coach-title: #38BDF8;
+  --coach-text: #F1F5F9;
+  --banner-bg: #1A2234;
+  --table-header-bg: #0F172A;
+  --table-even-bg: #162032;
 }
 
 * {
@@ -25,6 +51,7 @@ body {
   display: flex;
   min-height: 100vh;
   line-height: 1.5;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Sidebar Styling */
@@ -37,10 +64,13 @@ body {
   height: 100vh;
   overflow-y: auto;
   z-index: 100;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .sidebar-header {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--card-border);
 }
@@ -69,6 +99,7 @@ body {
   border-radius: 2px;
   background-color: var(--team-accent);
   display: inline-block;
+  transition: background-color 0.3s ease;
 }
 
 .nav-list {
@@ -89,7 +120,7 @@ body {
   color: var(--text-secondary);
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .nav-item button:hover {
@@ -103,6 +134,39 @@ body {
   font-weight: 700;
   border-left: 3px solid var(--team-accent);
   padding-left: 9px;
+}
+
+/* Theme Switcher Toggle Button in Sidebar */
+.theme-toggle-container {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
+}
+
+.theme-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-color);
+  border: 1px solid var(--card-border);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--text-secondary);
+}
+
+.theme-icon-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Main Content Layout */
@@ -126,22 +190,25 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 6px;
+  transition: color 0.3s ease;
 }
 
 .section-subtitle {
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 20px;
+  transition: color 0.3s ease;
 }
 
 /* Coach Callout Box ("What am I looking at") */
 .coach-callout {
-  background-color: rgba(56, 189, 248, 0.08); /* Team accent at low opacity */
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  background-color: var(--coach-bg);
+  border: 1px solid var(--coach-border);
   border-left: 4px solid var(--team-accent);
   border-radius: 6px;
   padding: 16px 20px;
   margin-bottom: 24px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .coach-callout-title {
@@ -149,23 +216,25 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #0369a1;
+  color: var(--coach-title);
   margin-bottom: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
+  transition: color 0.3s ease;
 }
 
 .coach-callout-text {
   font-size: 13.5px;
   line-height: 1.55;
-  color: #0f172a;
+  color: var(--coach-text);
   font-weight: 450;
+  transition: color 0.3s ease;
 }
 
 /* Explanatory Banner */
 .info-banner {
-  background-color: #F4F4F0;
+  background-color: var(--banner-bg);
   border: 1px solid var(--card-border);
   border-radius: 6px;
   padding: 14px 18px;
@@ -173,6 +242,7 @@ body {
   color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: 20px;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 /* Card System */
@@ -183,6 +253,7 @@ body {
   box-shadow: var(--card-shadow);
   padding: 24px;
   margin-bottom: 24px;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card-title {
@@ -192,6 +263,7 @@ body {
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 12px;
+  transition: color 0.3s ease;
 }
 
 /* Metric & Stat Cards */
@@ -206,6 +278,7 @@ body {
   border: 1px solid var(--card-border);
   border-radius: 6px;
   padding: 20px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .stat-label {
@@ -215,6 +288,7 @@ body {
   text-transform: uppercase;
   color: var(--text-secondary);
   margin-bottom: 8px;
+  transition: color 0.3s ease;
 }
 
 .stat-value {
@@ -222,6 +296,7 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.1;
+  transition: color 0.3s ease;
 }
 
 .stat-unit {
@@ -255,7 +330,7 @@ body {
   color: var(--text-primary);
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .btn:hover {
@@ -281,11 +356,19 @@ input[type="range"] {
   cursor: pointer;
 }
 
+select {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border-color: var(--card-border);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
 /* Tables */
 .data-table-container {
   margin-top: 16px;
   border-top: 1px solid var(--card-border);
   padding-top: 16px;
+  transition: border-color 0.3s ease;
 }
 
 .table-wrapper {
@@ -294,6 +377,7 @@ input[type="range"] {
   border: 1px solid var(--card-border);
   border-radius: 4px;
   margin-top: 12px;
+  transition: border-color 0.3s ease;
 }
 
 table {
@@ -304,7 +388,7 @@ table {
 }
 
 th {
-  background-color: #F4F4F0;
+  background-color: var(--table-header-bg);
   color: var(--text-secondary);
   font-weight: 700;
   font-size: 11px;
@@ -314,16 +398,18 @@ th {
   position: sticky;
   top: 0;
   border-bottom: 1px solid var(--card-border);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 td {
   padding: 8px 14px;
   border-bottom: 1px solid var(--card-border);
   color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 tr:nth-child(even) {
-  background-color: #FBFBFA;
+  background-color: var(--table-even-bg);
 }
 
 .plot-container {
@@ -335,11 +421,12 @@ tr:nth-child(even) {
 .technical-drawer {
   margin-top: 12px;
   padding: 14px;
-  background-color: #FAFAF8;
+  background-color: var(--bg-color);
   border: 1px solid var(--card-border);
   border-radius: 4px;
   font-family: monospace;
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }

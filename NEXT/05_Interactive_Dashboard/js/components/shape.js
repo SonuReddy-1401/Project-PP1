@@ -118,18 +118,25 @@ function renderShapePlotData(rawDataset, metadata) {
     line: { color: '#f43f5e', width: 2 }
   };
 
+  const isDark = isDarkMode();
+  const paperBg = isDark ? '#1E293B' : '#FFFFFF';
+  const plotBg = isDark ? '#0F172A' : '#FAFAF8';
+  const textColor = isDark ? '#F8FAFC' : '#1A1A1A';
+  const gridColor = isDark ? '#334155' : '#E5E5E0';
+  const subTextColor = isDark ? '#94A3B8' : '#6B6B6B';
+
   const layout = {
-    title: { text: `Team Compactness Metrics Across Match Time (${gShapeMode.toUpperCase()} Mode)`, font: { size: 14, color: '#1A1A1A' } },
-    paper_bgcolor: '#FFFFFF',
-    plot_bgcolor: '#FAFAF8',
-    xaxis: { title: 'Match Clock Time (MM:SS)', showgrid: true, gridcolor: '#E5E5E0', nticks: 10 },
-    yaxis: { title: 'Distance (meters)', showgrid: true, gridcolor: '#E5E5E0' },
+    title: { text: `Team Compactness Metrics Across Match Time (${gShapeMode.toUpperCase()} Mode)`, font: { size: 14, color: textColor } },
+    paper_bgcolor: paperBg,
+    plot_bgcolor: plotBg,
+    xaxis: { title: { text: 'Match Clock Time (MM:SS)', font: { color: textColor } }, showgrid: true, gridcolor: gridColor, tickfont: { color: textColor } },
+    yaxis: { title: { text: 'Distance (meters)', font: { color: textColor } }, showgrid: true, gridcolor: gridColor, tickfont: { color: textColor } },
     annotations: [
-      { x: '11:19', y: 15, text: 'Team briefly compressed (11:19 match time)', showarrow: true, arrowhead: 2, ax: 0, ay: -30, font: { size: 11, color: '#6B6B6B' } },
-      { x: '12:48', y: 18, text: 'Fast transition (12:48 match time)', showarrow: true, arrowhead: 2, ax: 0, ay: -30, font: { size: 11, color: '#6B6B6B' } }
+      { x: '11:19', y: 15, text: 'Team briefly compressed (11:19 match time)', showarrow: true, arrowhead: 2, ax: 0, ay: -30, font: { size: 11, color: subTextColor } },
+      { x: '12:48', y: 18, text: 'Fast transition (12:48 match time)', showarrow: true, arrowhead: 2, ax: 0, ay: -30, font: { size: 11, color: subTextColor } }
     ],
     margin: { l: 50, r: 20, t: 40, b: 50 },
-    legend: { orientation: 'h', y: 1.12 }
+    legend: { orientation: 'h', y: 1.12, font: { color: textColor } }
   };
 
   Plotly.newPlot('plot-shape', [traceWidth, traceDepth], layout, { responsive: true });
