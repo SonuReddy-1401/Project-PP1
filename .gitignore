@@ -12,3 +12,6 @@
 
 # Allow .gitignore file
 !.gitignore
+
+# Allow PRO_DASHBOARD folder
+!/PRO_DASHBOARD/
