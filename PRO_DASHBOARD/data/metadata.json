@@ -1,0 +1,11 @@
+{
+  "clip_name": "clip_15min_napoli_roma.mp4",
+  "clip_label": "Napoli vs Roma (15-Minute Broadcast Sequence)",
+  "clip_start_offset_sec": 594.0,
+  "fps": 25.0,
+  "total_frames": 22500,
+  "duration_sec": 900.0,
+  "target_team_name": "Napoli",
+  "attacking_direction": "left_to_right",
+  "kit_color": "Sky Blue Outfield + Orange GK"
+}
