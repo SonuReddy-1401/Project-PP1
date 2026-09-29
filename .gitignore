@@ -1,20 +1,12 @@
 # Ignore everything in the root directory
 /*
 
-# Allow NEXT folder
-!/NEXT/
-
-# Ignore everything inside NEXT
-/NEXT/*
-
-# Allow 05_Interactive_Dashboard inside NEXT
-#/NEXT/05_Interactive_Dashboard/
-
 # Allow .gitignore file
 !.gitignore
 
-# Allow PRO_DASHBOARD folder
-#!/PRO_DASHBOARD/
+# Allow main repository documentation
+!README.md
+!Phase1-2_Technical_Report.md
 
 # Allow UNIFIED_PIPELINE folder
 !/UNIFIED_PIPELINE/

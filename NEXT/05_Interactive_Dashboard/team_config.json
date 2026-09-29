@@ -1,7 +1,0 @@
-{
-  "target_cluster_id": 1,
-  "target_team_name": "Napoli (Sky Blue)",
-  "attacking_direction": "left_to_right",
-  "temporal_window_size": 5,
-  "iou_threshold": 0.45
-}
