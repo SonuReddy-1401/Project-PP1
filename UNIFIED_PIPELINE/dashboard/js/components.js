@@ -444,12 +444,14 @@ function renderThirdsView(rawDataset, meta, narratives) {
   if (!container) return;
 
   const thirds = meta.stats?.thirds_pct || { defensive: 30.0, middle: 55.0, attacking: 15.0 };
+  const atkDir = meta.attacking_direction || 'left_to_right';
+  const atkLabel = atkDir === 'right_to_left' ? 'Right \u2192 Left' : 'Left \u2192 Right';
   const coachText = narratives.thirds?.summary || `Middle third dominance of ${thirds.middle}%.`;
 
   container.innerHTML = `
     <div class="page-header">
       <div class="page-title">Pitch-Thirds Occupancy Dominance</div>
-      <div class="page-sub">Percentage of frames team centroid occupied Defensive, Middle, and Attacking pitch thirds</div>
+      <div class="page-sub">Attacking Direction: <strong style="color: var(--team-primary-color);">${atkLabel}</strong> — Percentage of frames team centroid occupied each pitch third</div>
     </div>
 
     <div class="coach-summary-box">
@@ -475,9 +477,11 @@ function renderProThirdsPlot(thirds, meta) {
   const textColor = isDark ? '#F1F5F9' : '#0F172A';
   const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
   const teamColor = meta.team_color || '#0080FF';
+  const atkDir = meta.attacking_direction || 'left_to_right';
+  const atkArrow = atkDir === 'right_to_left' ? '\u2190' : '\u2192';
 
   const trace = {
-    x: ['Defensive Third (-52.5m to -17.5m)', 'Middle Third (-17.5m to +17.5m)', 'Attacking Third (+17.5m to +52.5m)'],
+    x: [`Defensive Third`, `Middle Third`, `Attacking Third (${atkArrow})`],
     y: [thirds.defensive, thirds.middle, thirds.attacking],
     type: 'bar',
     marker: { color: ['#10B981', teamColor, '#F59E0B'] },
@@ -487,7 +491,7 @@ function renderProThirdsPlot(thirds, meta) {
   };
 
   const layout = {
-    title: { text: 'Whole Match Pitch-Thirds Centroid Occupancy (%)', font: { size: 14, color: textColor, family: 'Outfit, sans-serif' } },
+    title: { text: `Pitch-Thirds Centroid Occupancy (%) — Attacking ${atkDir === 'right_to_left' ? 'Right to Left' : 'Left to Right'}`, font: { size: 14, color: textColor, family: 'Outfit, sans-serif' } },
     paper_bgcolor: paperBg,
     plot_bgcolor: plotBg,
     xaxis: { tickfont: { color: textColor } },
@@ -541,6 +545,62 @@ function renderRosterView(trackedDataset, meta, narratives) {
   if (!container) return;
 
   const coachText = narratives.players?.summary || "Player tracking provides continuous mobility snapshots.";
+  const teamColor = meta.team_color || '#0080FF';
+  const startClock = meta.match_start_clock || '00:00';
+
+  // Compute per-player stats from tracked dataset
+  const playerMap = {};
+  if (trackedDataset && trackedDataset.length) {
+    for (let i = 0; i < trackedDataset.length; i++) {
+      const frame = trackedDataset[i];
+      const positions = getFramePositions(frame);
+      for (let j = 0; j < positions.length; j++) {
+        const key = `Player #${j + 1}`;
+        if (!playerMap[key]) playerMap[key] = { positions: [], firstFrame: i };
+        playerMap[key].positions.push(positions[j]);
+      }
+    }
+  }
+
+  let playerRows = '';
+  const fps = meta.fps || 25.0;
+  const startOffsetSec = meta.clip_start_offset_sec || 0.0;
+  const playerKeys = Object.keys(playerMap).slice(0, 11);
+
+  if (playerKeys.length === 0) {
+    playerRows = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No tracked player data available</td></tr>`;
+  } else {
+    for (const key of playerKeys) {
+      const data = playerMap[key];
+      let totalDist = 0;
+      for (let k = 1; k < data.positions.length; k++) {
+        const prev = data.positions[k - 1];
+        const curr = data.positions[k];
+        const px0 = Array.isArray(prev) ? prev[0] : (prev.x || 0);
+        const py0 = Array.isArray(prev) ? prev[1] : (prev.y || 0);
+        const px1 = Array.isArray(curr) ? curr[0] : (curr.x || 0);
+        const py1 = Array.isArray(curr) ? curr[1] : (curr.y || 0);
+        const step = Math.sqrt((px1 - px0) ** 2 + (py1 - py0) ** 2);
+        if (step < 0.4) totalDist += step;
+      }
+
+      const durationSec = data.positions.length / fps;
+      const paceKmh = durationSec > 0 ? ((totalDist / durationSec) * 3.6).toFixed(1) : '0.0';
+      const startTimeSec = startOffsetSec + (data.firstFrame / fps);
+      const min = Math.floor(startTimeSec / 60);
+      const sec = Math.floor(startTimeSec % 60);
+      const clockStr = `${min}:${sec.toString().padStart(2, '0')}`;
+
+      playerRows += `
+        <tr>
+          <td><strong style="color: ${teamColor};">${key}</strong></td>
+          <td>${clockStr}</td>
+          <td>${totalDist.toFixed(1)} m</td>
+          <td>${paceKmh} km/h avg pace</td>
+          <td><span style="color: var(--tactical-emerald);">Tracked (${data.positions.length} samples)</span></td>
+        </tr>`;
+    }
+  }
 
   container.innerHTML = `
     <div class="page-header">
@@ -568,15 +628,9 @@ function renderRosterView(trackedDataset, meta, narratives) {
               <th>Tracking Status</th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td><strong style="color: ${meta.team_color || '#0080FF'};">Player Tracker #1</strong></td>
-              <td>${meta.match_start_clock || "00:00"}</td>
-              <td>124.5 m</td>
-              <td>8.4 km/h avg pace</td>
-              <td><span style="color: var(--tactical-emerald);">Continuous Tracked</span></td>
-            </tr>
-          </tbody>
+            <tbody>
+              ${playerRows}
+            </tbody>
         </table>
       </div>
     </div>
@@ -590,10 +644,16 @@ function renderAuditView(meta, narratives) {
 
   const coachText = narratives.methodology?.summary || "Pipeline rejects impossible frame jumps using 10 m/s threshold.";
 
+  const stats = meta.stats || {};
+  const calibRate = stats.calib_rate_pct !== undefined ? stats.calib_rate_pct : 'N/A';
+  const calibSolved = stats.calib_solved || 0;
+  const calibTotal = (stats.calib_solved || 0) + (stats.calib_failed || 0);
+  const rejectionRate = stats.rejection_rate_pct || 0;
+
   container.innerHTML = `
     <div class="page-header">
       <div class="page-title">Data Quality & Pipeline Methodology Audit</div>
-      <div class="page-sub">PnL Calibration error diagnostics, homography reprojection error, and outlier rejection models</div>
+      <div class="page-sub">PnL Calibration diagnostics, homography projection accuracy, and outlier rejection models</div>
     </div>
 
     <div class="coach-summary-box">
@@ -607,13 +667,23 @@ function renderAuditView(meta, narratives) {
     <div class="stat-grid">
       <div class="stat-box">
         <div class="stat-lbl">PnL Calibration Rate</div>
-        <div class="stat-val" style="color: var(--tactical-emerald);">100.0%</div>
-        <div class="stat-badge">${meta.stats?.total_frames || 0} / ${meta.stats?.total_frames || 0} Frames Solved</div>
+        <div class="stat-val" style="color: var(--tactical-emerald);">${calibRate}%</div>
+        <div class="stat-badge">${calibSolved} / ${calibTotal} Frames Solved</div>
       </div>
       <div class="stat-box">
-        <div class="stat-lbl">Mean Reprojection Error</div>
-        <div class="stat-val">3.37 <span style="font-size: 16px; color: var(--text-muted);">px</span></div>
-        <div class="stat-badge">Pan Spike Max: 9.66 px</div>
+        <div class="stat-lbl">Speed Outlier Rejection</div>
+        <div class="stat-val">${rejectionRate} <span style="font-size: 16px; color: var(--text-muted);">%</span></div>
+        <div class="stat-badge">Ceiling: 10 m/s (camera pan filter)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-lbl">Total Processed Frames</div>
+        <div class="stat-val" style="color: var(--team-primary-color);">${stats.total_frames || 0}</div>
+        <div class="stat-badge">${stats.total_samples || 0} total position samples</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-lbl">Clip Duration</div>
+        <div class="stat-val">${((stats.duration_sec || 0) / 60).toFixed(1)} <span style="font-size: 16px; color: var(--text-muted);">min</span></div>
+        <div class="stat-badge">${meta.fps || 25} FPS source</div>
       </div>
     </div>
   `;

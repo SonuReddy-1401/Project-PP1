@@ -1,11 +1,12 @@
 {
-  "team_name": "A S Roma",
-  "opponent_name": "Napoli",
+  "team_name": "AS Roma",
+  "opponent_name": "SSC Napoli",
   "team_color": "#EF4444",
   "team_color_secondary": "#F87171",
   "team_badge": "Crimson Red Outfield",
-  "match_start_clock": "00:10",
-  "clip_start_offset_sec": 10.0,
+  "attacking_direction": "right_to_left",
+  "match_start_clock": "00:09",
+  "clip_start_offset_sec": 9.0,
   "fps": 25.0,
   "total_frames": 3746,
   "duration_sec": 149.84,
@@ -20,9 +21,12 @@
     "avg_pace_kmh": 3.77,
     "rejection_rate_pct": 46.0,
     "thirds_pct": {
-      "defensive": 55.4,
+      "defensive": 0.0,
       "middle": 44.6,
-      "attacking": 0.0
-    }
+      "attacking": 55.4
+    },
+    "calib_solved": 3750,
+    "calib_failed": 0,
+    "calib_rate_pct": 100.0
   }
 }

@@ -28,15 +28,17 @@ class ProPipelineGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Pro Tactical Football Analytics — Setup & Ingestion Center")
-        self.root.geometry("780x720")
+        self.root.geometry("840x820")
+        self.root.minsize(760, 650)
         self.root.configure(bg="#0A0D14")
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
         self.selected_file_path = tk.StringVar(value="")
-        self.team_name_var = tk.StringVar(value="SSC Napoli")
-        self.opponent_name_var = tk.StringVar(value="AS Roma")
+        self.team_name_var = tk.StringVar(value="")
+        self.opponent_name_var = tk.StringVar(value="")
         self.team_color_var = tk.StringVar(value="sky_blue")
-        self.match_start_var = tk.StringVar(value="09:54")
+        self.attacking_dir_var = tk.StringVar(value="left_to_right")
+        self.match_start_var = tk.StringVar(value="00:00")
         self.port_var = tk.StringVar(value="8090")
 
         self.setup_styles()
@@ -167,17 +169,30 @@ class ProPipelineGUI:
         )
         color_combo.grid(row=6, column=1, columnspan=2, sticky="ew", padx=(10, 0), pady=6)
 
+        # Attacking Direction Dropdown
+        lbl_atk = ttk.Label(form_card, text="Attacking Direction:", style="FormLabel.TLabel")
+        lbl_atk.grid(row=7, column=0, sticky="w", pady=6)
+
+        atk_combo = ttk.Combobox(
+            form_card,
+            textvariable=self.attacking_dir_var,
+            values=["left_to_right", "right_to_left"],
+            state="readonly",
+            font=("Inter", 10, "bold")
+        )
+        atk_combo.grid(row=7, column=1, columnspan=2, sticky="ew", padx=(10, 0), pady=6)
+
         # Match Start Clock Offset
         lbl_clock = ttk.Label(form_card, text="Match Clock Start (MM:SS):", style="FormLabel.TLabel")
-        lbl_clock.grid(row=7, column=0, sticky="w", pady=6)
+        lbl_clock.grid(row=8, column=0, sticky="w", pady=6)
         entry_clock = self.create_input_entry(form_card, self.match_start_var)
-        entry_clock.grid(row=7, column=1, columnspan=2, sticky="ew", padx=(10, 0), pady=6)
+        entry_clock.grid(row=8, column=1, columnspan=2, sticky="ew", padx=(10, 0), pady=6)
 
         # Dashboard Port
         lbl_port = ttk.Label(form_card, text="Dashboard HTTP Port:", style="FormLabel.TLabel")
-        lbl_port.grid(row=8, column=0, sticky="w", pady=6)
+        lbl_port.grid(row=9, column=0, sticky="w", pady=6)
         entry_port = self.create_input_entry(form_card, self.port_var)
-        entry_port.grid(row=8, column=1, columnspan=2, sticky="ew", padx=(10, 0), pady=6)
+        entry_port.grid(row=9, column=1, columnspan=2, sticky="ew", padx=(10, 0), pady=6)
 
         # Section 3: Execution Output Console
         console_card = ttk.Frame(self.root, style="Card.TFrame", padding="16")
@@ -237,6 +252,7 @@ class ProPipelineGUI:
         team_name = self.team_name_var.get().strip()
         opponent_name = self.opponent_name_var.get().strip()
         team_color = self.team_color_var.get().strip()
+        attacking_dir = self.attacking_dir_var.get().strip()
         match_start = self.match_start_var.get().strip()
         port = self.port_var.get().strip()
 
@@ -245,6 +261,7 @@ class ProPipelineGUI:
         self.log(f"   * Target Squad: {team_name}")
         self.log(f"   * Opponent Squad: {opponent_name}")
         self.log(f"   * Kit Color Theme: {team_color}")
+        self.log(f"   * Attacking Direction: {attacking_dir}")
         self.log(f"   * Match Start Clock: {match_start}")
         self.log(f"   * Dashboard Port: {port}")
         if file_path:
@@ -264,6 +281,7 @@ class ProPipelineGUI:
             "--team_name", team_name,
             "--opponent_name", opponent_name,
             "--team_color", team_color,
+            "--attacking_dir", attacking_dir,
             "--match_start", match_start,
             "--port", port
         ]

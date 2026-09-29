@@ -12,7 +12,7 @@ def extract_positions(frame):
         return []
     return frame.get("target_positions") or frame.get("players") or []
 
-def process_dataset(raw_data, fps=25.0, clip_start_offset_sec=0.0):
+def process_dataset(raw_data, fps=25.0, clip_start_offset_sec=0.0, attacking_direction="left_to_right"):
     """
     Processes raw dataset frames, applying physical outlier filtering (< 10 m/s ceiling),
     calculating pitch thirds occupancy, team width/depth/area metrics, and centroid trajectory.
@@ -60,13 +60,23 @@ def process_dataset(raw_data, fps=25.0, clip_start_offset_sec=0.0):
         cx = sum_x / count
         cy = sum_y / count
         
-        # Pitch Thirds (-52.5 to -17.5 = Defensive, -17.5 to 17.5 = Middle, 17.5 to 52.5 = Attacking)
-        if cx < -17.5:
-            thirds_count["defensive"] += 1
-        elif cx > 17.5:
-            thirds_count["attacking"] += 1
+        # Pitch Thirds classification based on attacking direction
+        # For left_to_right: cx < -17.5 = Defensive, cx > 17.5 = Attacking
+        # For right_to_left: cx > 17.5 = Defensive, cx < -17.5 = Attacking (FLIPPED)
+        if attacking_direction == "right_to_left":
+            if cx > 17.5:
+                thirds_count["defensive"] += 1
+            elif cx < -17.5:
+                thirds_count["attacking"] += 1
+            else:
+                thirds_count["middle"] += 1
         else:
-            thirds_count["middle"] += 1
+            if cx < -17.5:
+                thirds_count["defensive"] += 1
+            elif cx > 17.5:
+                thirds_count["attacking"] += 1
+            else:
+                thirds_count["middle"] += 1
             
         w = max(1.0, max_y - min_y)
         d = max(1.0, max_x - min_x)

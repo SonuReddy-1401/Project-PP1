@@ -1,15 +1,15 @@
 {
   "overview": {
-    "summary": "A S Roma controlled the match sequence primarily through the Defensive Third (55.4% occupancy), maintaining an average tactical pitch width of 41.5m and depth of 30.1m."
+    "summary": "AS Roma controlled the match sequence primarily through the Attacking Third (55.4% occupancy), maintaining an average tactical pitch width of 41.5m and depth of 30.1m."
   },
   "heatmap": {
-    "summary": "A S Roma established spatial occupancy density across pitch coordinates with an average squad area envelope of 1283.5 m\u00b2."
+    "summary": "AS Roma established spatial occupancy density across pitch coordinates with an average squad area envelope of 1283.5 m\u00b2."
   },
   "shape": {
-    "summary": "A S Roma's pitch width averaged 41.5m while depth averaged 30.1m. Structural compactness and area expansion fluctuated between 1283.5 m\u00b2."
+    "summary": "AS Roma's pitch width averaged 41.5m while depth averaged 30.1m. Structural compactness and area expansion fluctuated between 1283.5 m\u00b2."
   },
   "thirds": {
-    "summary": "A S Roma recorded 44.6% occupancy in the Middle Third, 55.4% in the Defensive Third, and 0.0% in the Attacking Third."
+    "summary": "AS Roma recorded 44.6% occupancy in the Middle Third, 0.0% in the Defensive Third, and 55.4% in the Attacking Third."
   },
   "trajectory": {
     "summary": "Team centroid displacement total is 0.16 km (3.77 km/h average pace) using physical outlier rejection (< 10 m/s ceiling)."

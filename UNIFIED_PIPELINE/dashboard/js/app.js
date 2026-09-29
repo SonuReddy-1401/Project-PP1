@@ -77,6 +77,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
     }
 
+    // 5. Initialize Sidebar Toggle
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebarToggle && sidebar) {
+      sidebarToggle.onclick = () => {
+        sidebar.classList.toggle('collapsed');
+      };
+    }
+
     // Default View Initialization
     switchView('overview');
 

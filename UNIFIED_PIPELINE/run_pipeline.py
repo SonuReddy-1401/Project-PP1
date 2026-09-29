@@ -55,10 +55,11 @@ def main():
     )
     parser.add_argument("--dataset", type=str, default=None, help="Path to input positions JSON dataset file")
     parser.add_argument("--video", type=str, default=None, help="Path to raw broadcast video file (.mp4, .avi, .mov)")
-    parser.add_argument("--team_name", type=str, default="SSC Napoli", help="Target team/squad label")
-    parser.add_argument("--opponent_name", type=str, default="AS Roma", help="Opponent team label")
+    parser.add_argument("--team_name", type=str, default="Target Team", help="Target team/squad label")
+    parser.add_argument("--opponent_name", type=str, default="Opponent", help="Opponent team label")
     parser.add_argument("--team_color", type=str, default="sky_blue", help="Target kit color theme (sky_blue, red, white, yellow, emerald, navy, or hex code #0080FF)")
-    parser.add_argument("--match_start", type=str, default="09:54", help="Starting match clock timestamp (e.g., '09:54', '00:00', '45:00')")
+    parser.add_argument("--attacking_dir", type=str, default="left_to_right", choices=["left_to_right", "right_to_left"], help="Attacking direction of target team (left_to_right or right_to_left)")
+    parser.add_argument("--match_start", type=str, default="00:00", help="Starting match clock timestamp (e.g., '09:54', '00:00', '45:00')")
     parser.add_argument("--fps", type=float, default=25.0, help="Video frame rate FPS")
     parser.add_argument("--port", type=int, default=8090, help="HTTP server port for dashboard")
     parser.add_argument("--no_launch", action="store_true", help="Disable automatic browser opening")
@@ -72,8 +73,8 @@ def main():
     fps = args.fps
 
     if args.video and os.path.exists(args.video):
-        print(f"🎬 Processing broadcast video clip: {args.video}")
-        input_data, video_fps, total_v_frames, duration_v_sec = process_video_clip(
+        print(f"Processing broadcast video clip: {args.video}")
+        input_data, video_fps, total_v_frames, duration_v_sec, cv_stats = process_video_clip(
             video_path=args.video,
             kit_color_input=args.team_color,
             target_fps=args.fps
@@ -94,8 +95,8 @@ def main():
             print("⚠️ No valid input dataset provided and default dataset not found!")
             sys.exit(1)
 
-    print(f"⚡ Processing {len(input_data)} frames with FPS={args.fps} and match start clock={args.match_start}...")
-    processed_frames, stats = process_dataset(input_data, fps=args.fps)
+    print(f"Processing {len(input_data)} frames with FPS={args.fps}, match start={args.match_start}, attacking={args.attacking_dir}...")
+    processed_frames, stats = process_dataset(input_data, fps=args.fps, attacking_direction=args.attacking_dir)
 
     print(f"✅ Metrics calculated:")
     print(f"   • Average Pitch Width: {stats['avg_width_m']} m")
@@ -104,8 +105,14 @@ def main():
     print(f"   • Middle Third Occupancy: {stats['thirds_pct']['middle']}%")
     print(f"   • Safe Centroid Distance: {stats['safe_centroid_dist_km']} km ({stats['avg_pace_kmh']} km/h avg pace)")
 
+    # Merge cv_stats into stats if available
+    if 'cv_stats' in dir() and cv_stats:
+        stats["calib_solved"] = cv_stats.get("calib_solved", 0)
+        stats["calib_failed"] = cv_stats.get("calib_failed", 0)
+        stats["calib_rate_pct"] = cv_stats.get("calib_rate_pct", 0.0)
+
     # 2. Export Pipeline Assets
-    print("📦 Exporting pipeline assets to dashboard/data/...")
+    print("Exporting pipeline assets to dashboard/data/...")
     ds_path, meta_path, nar_path = export_pipeline_assets(
         dashboard_dir=dashboard_dir,
         processed_frames=processed_frames,
@@ -113,6 +120,7 @@ def main():
         team_name=args.team_name,
         opponent_name=args.opponent_name,
         team_color=args.team_color,
+        attacking_direction=args.attacking_dir,
         match_start_clock=args.match_start,
         fps=args.fps
     )

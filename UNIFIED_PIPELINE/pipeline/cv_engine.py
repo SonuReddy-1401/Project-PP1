@@ -578,4 +578,10 @@ def process_video_clip(video_path, kit_color_input, target_fps=25.0):
     print(f"[CV ENGINE] COMPLETE: {len(extracted_frames)} frames extracted.", flush=True)
     print(f"   PnLCalib solve rate: {calib_rate}% ({calib_solved}/{calib_solved + calib_failed})", flush=True)
 
-    return extracted_frames, fps, total_frames, duration_sec
+    cv_stats = {
+        "calib_solved": calib_solved,
+        "calib_failed": calib_failed,
+        "calib_rate_pct": calib_rate,
+    }
+
+    return extracted_frames, fps, total_frames, duration_sec, cv_stats

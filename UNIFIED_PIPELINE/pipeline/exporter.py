@@ -48,7 +48,7 @@ def generate_narratives(team_name, opponent_name, stats, match_start_clock):
         }
     }
 
-def export_pipeline_assets(dashboard_dir, processed_frames, stats, team_name, opponent_name, team_color, match_start_clock, fps):
+def export_pipeline_assets(dashboard_dir, processed_frames, stats, team_name, opponent_name, team_color, attacking_direction, match_start_clock, fps):
     """
     Exports positions dataset, metadata, narratives, and color theme variables to dashboard data directory.
     """
@@ -76,6 +76,7 @@ def export_pipeline_assets(dashboard_dir, processed_frames, stats, team_name, op
         "team_color": color_cfg["primary"],
         "team_color_secondary": color_cfg["secondary"],
         "team_badge": color_cfg["badge"],
+        "attacking_direction": attacking_direction,
         "match_start_clock": match_start_clock,
         "clip_start_offset_sec": clip_start_offset_sec,
         "fps": fps,
