@@ -129,8 +129,6 @@ UNIFIED_PIPELINE/
 
 ### 2. Environment Setup
 ```bash
-# Clone the repository and navigate to UNIFIED_PIPELINE
-cd S:\CLG\PP1\EXP\UNIFIED_PIPELINE
 
 # Create and activate virtual environment
 python -m venv .venv
