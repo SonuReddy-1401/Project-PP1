@@ -8,13 +8,13 @@
 /NEXT/*
 
 # Allow 05_Interactive_Dashboard inside NEXT
-!/NEXT/05_Interactive_Dashboard/
+#/NEXT/05_Interactive_Dashboard/
 
 # Allow .gitignore file
 !.gitignore
 
 # Allow PRO_DASHBOARD folder
-!/PRO_DASHBOARD/
+#!/PRO_DASHBOARD/
 
 # Allow UNIFIED_PIPELINE folder
 !/UNIFIED_PIPELINE/
