@@ -4,15 +4,16 @@
  */
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const metaRes = await fetch('data/metadata.json');
+    const timestamp = Date.now();
+    const metaRes = await fetch(`data/metadata.json?v=${timestamp}`);
     const meta = await metaRes.json();
     window.gMetadata = meta;
 
-    const navRes = await fetch('data/narratives.json');
+    const navRes = await fetch(`data/narratives.json?v=${timestamp}`);
     const narratives = await navRes.json();
     window.gNarratives = narratives;
 
-    const dataRes = await fetch('data/positions_dataset.json');
+    const dataRes = await fetch(`data/positions_dataset.json?v=${timestamp}`);
     const rawDataset = await dataRes.json();
     window.gRawDataset = rawDataset;
 

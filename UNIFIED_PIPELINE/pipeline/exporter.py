@@ -26,13 +26,13 @@ def generate_narratives(team_name, opponent_name, stats, match_start_clock):
         
     return {
         "overview": {
-            "summary": f"{team_name} controlled the match sequence primarily through the {dom_third} ({dom_val}% occupancy), maintaining an average tactical pitch width of {stats.get('avg_width_m')}m and depth of {stats.get('avg_depth_m')}m."
+            "summary": f"{team_name} controlled the match sequence primarily through the {dom_third} ({dom_val}% occupancy), maintaining an average pitch width of {stats.get('avg_width_m')}m, vertical compactness of {stats.get('avg_compactness_m', stats.get('avg_depth_m'))}m, and defensive line height of {stats.get('avg_line_height_m', 55.0)}m from own goal."
         },
         "heatmap": {
             "summary": f"{team_name} established spatial occupancy density across pitch coordinates with an average squad area envelope of {stats.get('avg_area_m2')} m²."
         },
         "shape": {
-            "summary": f"{team_name}'s pitch width averaged {stats.get('avg_width_m')}m while depth averaged {stats.get('avg_depth_m')}m. Structural compactness and area expansion fluctuated between {stats.get('avg_area_m2')} m²."
+            "summary": f"{team_name}'s pitch width averaged {stats.get('avg_width_m')}m, vertical compactness averaged {stats.get('avg_compactness_m', stats.get('avg_depth_m'))}m, and defensive line height averaged {stats.get('avg_line_height_m', 55.0)}m from own goal."
         },
         "thirds": {
             "summary": f"{team_name} recorded {mid_pct}% occupancy in the Middle Third, {def_pct}% in the Defensive Third, and {att_pct}% in the Attacking Third."

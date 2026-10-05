@@ -21,7 +21,20 @@ function renderOverviewView(meta, narratives) {
   const teamName = meta.team_name || "Target Squad";
   const oppName = meta.opponent_name || "Opponent";
   const teamColor = meta.team_color || "#0080FF";
-  const coachText = narratives.overview?.summary || `${teamName} maintained compact tactical shape across the match sequence.`;
+
+  const thirds = stats.thirds_pct || {};
+  const defPct = thirds.defensive || 0.0;
+  const midPct = thirds.middle || 50.0;
+  const attPct = thirds.attacking || 0.0;
+  let domThird = "Middle Third", domVal = midPct;
+  if (defPct > midPct && defPct > attPct) { domThird = "Defensive Third"; domVal = defPct; }
+  else if (attPct > midPct && attPct > defPct) { domThird = "Attacking Third"; domVal = attPct; }
+
+  const widthM = stats.avg_width_m || 41.5;
+  const compactM = stats.avg_compactness_m || stats.avg_depth_m || 30.1;
+  const lineH = stats.avg_line_height_m || 58.2;
+
+  const coachText = `${teamName} controlled the match sequence primarily through the ${domThird} (${domVal}% occupancy), maintaining an average pitch width of ${widthM}m, vertical compactness of ${compactM}m, and defensive line height of ${lineH}m from own goal.`;
 
   const durationMin = (stats.duration_sec / 60.0).toFixed(2);
   const startClock = meta.match_start_clock || "00:00";
@@ -157,12 +170,14 @@ function renderShapeView(rawDataset, meta, narratives) {
   if (!container) return;
 
   const stats = meta.stats || {};
-  const coachText = narratives.shape?.summary || `Pitch width averaged ${stats.avg_width_m || 45} meters while depth averaged ${stats.avg_depth_m || 38} meters.`;
+  const coachText = narratives.shape?.summary || `Pitch width averaged ${stats.avg_width_m || 41.5} meters while defensive line height averaged ${stats.avg_depth_m || 35.0} meters from own goal.`;
+  const attackingDir = meta.attacking_direction || meta.attacking_dir || 'left_to_right';
+  const attackingTag = attackingDir.replace('_', ' ').toUpperCase();
 
   container.innerHTML = `
     <div class="page-header">
       <div class="page-title">Team Shape & Structural Compactness</div>
-      <div class="page-sub">Squad Pitch Width (Left-to-Right span) and Depth (Back-to-Front span) across match clock time</div>
+      <div class="page-sub">Dedicated Width (Y-span), Defensive Line Height (0–105m from own goal), and Vertical Compactness (X-span) Analysis</div>
     </div>
 
     <div class="coach-summary-box">
@@ -173,46 +188,72 @@ function renderShapeView(rawDataset, meta, narratives) {
       <div class="coach-text-body">${coachText}</div>
     </div>
 
-    <div class="chart-card">
-      <div id="plot-pro-shape" style="width: 100%; height: 460px;"></div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
-      <div class="chart-card">
-        <div id="plot-pro-area" style="width: 100%; height: 420px;"></div>
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div class="chart-card" style="padding: 20px;">
+        <div style="font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; color: var(--text-primary, #F1F5F9); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Team Pitch Width (Y-span)</span>
+          <span style="font-size: 11px; font-weight: 600; color: #38BDF8; background: rgba(56, 189, 248, 0.12); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3);">Touchline Span: 0–68m</span>
+        </div>
+        <div id="plot-pro-width" style="width: 100%; height: 380px;"></div>
       </div>
-      <div class="chart-card">
+
+      <div class="chart-card" style="padding: 20px;">
+        <div style="font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; color: var(--text-primary, #F1F5F9); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Defensive Line & Pitch Block Height</span>
+          <span style="font-size: 11px; font-weight: 600; color: #F59E0B; background: rgba(245, 158, 11, 0.12); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);">Attacking: ${attackingTag}</span>
+        </div>
+        <div id="plot-pro-line-height" style="width: 100%; height: 380px;"></div>
+      </div>
+
+      <div class="chart-card" style="padding: 20px;">
+        <div style="font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; color: var(--text-primary, #F1F5F9); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Squad Vertical Compactness (X-span)</span>
+          <span style="font-size: 11px; font-weight: 600; color: #EC4899; background: rgba(236, 72, 153, 0.12); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(236, 72, 153, 0.3);">Back-to-Front Depth</span>
+        </div>
+        <div id="plot-pro-compactness" style="width: 100%; height: 380px;"></div>
+      </div>
+
+      <div class="chart-card" style="padding: 20px;">
+        <div style="font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; color: var(--text-primary, #F1F5F9); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Squad Pitch Area Envelope (m²)</span>
+          <span style="font-size: 11px; font-weight: 600; color: #A855F7; background: rgba(168, 85, 247, 0.12); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.3);">Spatial Footprint</span>
+        </div>
+        <div id="plot-pro-area" style="width: 100%; height: 380px;"></div>
+      </div>
+
+      <div class="chart-card" style="padding: 20px;">
+        <div style="font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; color: var(--text-primary, #F1F5F9); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Tactical Phase Space (Depth vs Width Matrix)</span>
+          <span style="font-size: 11px; font-weight: 600; color: #10B981; background: rgba(16, 185, 129, 0.12); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.3);">Structural Clustering</span>
+        </div>
         <div id="plot-pro-phase" style="width: 100%; height: 420px;"></div>
       </div>
     </div>
   `;
 
-  renderProShapePlot(rawDataset, meta);
+  renderProWidthPlot(rawDataset, meta);
+  renderProLineHeightPlot(rawDataset, meta);
+  renderProCompactnessPlot(rawDataset, meta);
   renderProAreaPlot(rawDataset, meta);
   renderProPhasePlot(rawDataset, meta);
 }
 
-function renderProShapePlot(rawDataset, meta) {
+function renderProWidthPlot(rawDataset, meta) {
   if (!rawDataset || !rawDataset.length) return;
 
   const times = [];
   const widths = [];
-  const depths = [];
   const startSec = meta.clip_start_offset_sec || 0.0;
   const fps = meta.fps || 25.0;
-  const teamColor = meta.team_color || '#0080FF';
 
   for (let i = 0; i < rawDataset.length; i += Math.round(fps)) {
     const frame = rawDataset[i];
     const positions = getFramePositions(frame);
     if (!positions || !positions.length) continue;
 
-    let minX = 999, maxX = -999, minY = 999, maxY = -999;
+    let minY = 999, maxY = -999;
     for (let p of positions) {
-      const px = Array.isArray(p) ? p[0] : (p.x !== undefined ? p.x : 0);
       const py = Array.isArray(p) ? p[1] : (p.y !== undefined ? p.y : 0);
-      if (px < minX) minX = px;
-      if (px > maxX) maxX = px;
       if (py < minY) minY = py;
       if (py > maxY) maxY = py;
     }
@@ -221,9 +262,7 @@ function renderProShapePlot(rawDataset, meta) {
     const min = Math.floor(totalSec / 60);
     const sec = Math.floor(totalSec % 60);
     times.push(`${min}:${sec.toString().padStart(2, '0')}`);
-
     widths.push(Math.round((maxY - minY) * 10) / 10);
-    depths.push(Math.round((maxX - minX) * 10) / 10);
   }
 
   const isDark = isDarkTheme();
@@ -238,41 +277,288 @@ function renderProShapePlot(rawDataset, meta) {
     type: 'scatter',
     mode: 'lines',
     name: 'Team Width (Y-span)',
-    line: { color: teamColor, width: 2 }
-  };
-
-  const traceD = {
-    x: times,
-    y: depths,
-    type: 'scatter',
-    mode: 'lines',
-    name: 'Team Depth (X-span)',
-    line: { color: '#F43F5E', width: 2 }
+    fill: 'tozeroy',
+    fillcolor: isDark ? 'rgba(56, 189, 248, 0.12)' : 'rgba(56, 189, 248, 0.15)',
+    line: { color: '#38BDF8', width: 2.5 } // High-contrast Electric Cyan
   };
 
   const layout = {
-    title: { text: 'Team Compactness Metrics Across Match Time (1s Samples)', font: { size: 14, color: textColor, family: 'Outfit, sans-serif' } },
     paper_bgcolor: paperBg,
     plot_bgcolor: plotBg,
     xaxis: { 
-      title: { text: 'Match Clock Time (MM:SS)', font: { color: textColor, size: 12 }, standoff: 25 }, 
+      title: { text: 'Match Clock (MM:SS)', font: { color: textColor, size: 11 }, standoff: 15 }, 
       showgrid: true, 
       gridcolor: gridColor, 
-      tickfont: { color: textColor, size: 11 },
+      tickfont: { color: textColor, size: 10 },
       tickangle: -45,
       nticks: 15
     },
     yaxis: { 
-      title: { text: 'Distance (meters)', font: { color: textColor, size: 12 }, standoff: 15 }, 
+      title: { text: 'Width (meters)', font: { color: textColor, size: 11 }, standoff: 10 }, 
+      range: [0, 68.0], // Fixed bound relative to actual physical pitch width
       showgrid: true, 
       gridcolor: gridColor, 
-      tickfont: { color: textColor, size: 11 } 
+      tickfont: { color: textColor, size: 10 } 
     },
-    margin: { l: 60, r: 30, t: 40, b: 85 },
-    legend: { orientation: 'h', y: 1.12, font: { color: textColor } }
+    shapes: [
+      {
+        type: 'line',
+        x0: times[0],
+        x1: times[times.length - 1],
+        y0: 68.0,
+        y1: 68.0,
+        line: { color: 'rgba(56, 189, 248, 0.5)', width: 1.5, dash: 'dash' }
+      }
+    ],
+    annotations: [
+      {
+        x: times[Math.floor(times.length / 2)],
+        y: 65.0,
+        text: 'Full Pitch Touchline Limit (68.0m)',
+        showarrow: false,
+        font: { size: 9, color: '#38BDF8' }
+      }
+    ],
+    margin: { l: 55, r: 25, t: 25, b: 60 },
+    legend: { orientation: 'h', y: 1.12, x: 0, font: { color: textColor, size: 10 } }
   };
 
-  Plotly.newPlot('plot-pro-shape', [traceW, traceD], layout, { responsive: true });
+  Plotly.newPlot('plot-pro-width', [traceW], layout, { responsive: true });
+}
+
+// 1. Defensive Line & Pitch Block Height Graph (0-105m distance from own goal line)
+function renderProLineHeightPlot(rawDataset, meta) {
+  if (!rawDataset || !rawDataset.length) return;
+
+  const times = [];
+  const lineHeights = [];
+  const centroidHeights = [];
+  const startSec = meta.clip_start_offset_sec || 0.0;
+  const fps = meta.fps || 25.0;
+  const attackingDir = meta.attacking_direction || meta.attacking_dir || 'left_to_right';
+
+  for (let i = 0; i < rawDataset.length; i += Math.round(fps)) {
+    const frame = rawDataset[i];
+    const positions = getFramePositions(frame);
+    if (!positions || !positions.length) continue;
+
+    let minX = 999, maxX = -999, sumX = 0;
+    for (let p of positions) {
+      const px = Array.isArray(p) ? p[0] : (p.x !== undefined ? p.x : 0);
+      sumX += px;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+    }
+    const count = positions.length;
+    const cx = sumX / count;
+
+    // Dynamic Orientation-Aware Position from Own Goal (0m = Own Goal, 105m = Opponent Goal)
+    let lh = 0, ch = 0;
+    if (attackingDir === 'right_to_left') {
+      lh = Math.max(0, Math.min(105.0, 52.5 - maxX));
+      ch = Math.max(0, Math.min(105.0, 52.5 - cx));
+    } else {
+      lh = Math.max(0, Math.min(105.0, minX + 52.5));
+      ch = Math.max(0, Math.min(105.0, cx + 52.5));
+    }
+
+    const totalSec = startSec + (i / fps);
+    const min = Math.floor(totalSec / 60);
+    const sec = Math.floor(totalSec % 60);
+    times.push(`${min}:${sec.toString().padStart(2, '0')}`);
+
+    lineHeights.push(Math.round(lh * 10) / 10);
+    centroidHeights.push(Math.round(ch * 10) / 10);
+  }
+
+  const isDark = isDarkTheme();
+  const paperBg = isDark ? '#111622' : '#FFFFFF';
+  const plotBg = isDark ? '#0A0D14' : '#F8FAFC';
+  const textColor = isDark ? '#F1F5F9' : '#0F172A';
+  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+
+  const traceLine = {
+    x: times,
+    y: lineHeights,
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Defensive Line Height (m from Own Goal)',
+    fill: 'tozeroy',
+    fillcolor: isDark ? 'rgba(245, 158, 11, 0.12)' : 'rgba(245, 158, 11, 0.15)',
+    line: { color: '#F59E0B', width: 2.5 }
+  };
+
+  const traceCentroid = {
+    x: times,
+    y: centroidHeights,
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Squad Centroid Height (m from Own Goal)',
+    line: { color: '#10B981', width: 2, dash: 'dot' }
+  };
+
+  const layout = {
+    paper_bgcolor: paperBg,
+    plot_bgcolor: plotBg,
+    xaxis: { 
+      title: { text: 'Match Clock (MM:SS)', font: { color: textColor, size: 11 }, standoff: 15 }, 
+      showgrid: true, 
+      gridcolor: gridColor, 
+      tickfont: { color: textColor, size: 10 },
+      tickangle: -45,
+      nticks: 15
+    },
+    yaxis: { 
+      title: { text: 'Distance from Own Goal (meters)', font: { color: textColor, size: 11 }, standoff: 10 }, 
+      range: [0, 105.0],
+      showgrid: true, 
+      gridcolor: gridColor, 
+      tickfont: { color: textColor, size: 10 } 
+    },
+    shapes: [
+      {
+        type: 'line',
+        x0: times[0],
+        x1: times[times.length - 1],
+        y0: 105.0,
+        y1: 105.0,
+        line: { color: 'rgba(245, 158, 11, 0.5)', width: 1.5, dash: 'dash' }
+      },
+      {
+        type: 'line',
+        x0: times[0],
+        x1: times[times.length - 1],
+        y0: 52.5,
+        y1: 52.5,
+        line: { color: 'rgba(255, 255, 255, 0.2)', width: 1, dash: 'dot' }
+      }
+    ],
+    annotations: [
+      {
+        x: times[Math.floor(times.length / 2)],
+        y: 100.0,
+        text: 'Opponent Goal Line (105.0m)',
+        showarrow: false,
+        font: { size: 9, color: '#F59E0B' }
+      },
+      {
+        x: times[Math.floor(times.length / 2)],
+        y: 54.5,
+        text: 'Halfway Line (52.5m)',
+        showarrow: false,
+        font: { size: 9, color: '#94A3B8' }
+      }
+    ],
+    margin: { l: 55, r: 25, t: 25, b: 60 },
+    legend: { orientation: 'h', y: 1.12, x: 0, font: { color: textColor, size: 10 } }
+  };
+
+  Plotly.newPlot('plot-pro-line-height', [traceLine, traceCentroid], layout, { responsive: true });
+}
+
+// 2. Squad Vertical Compactness Graph (0-50m back-to-front span)
+function renderProCompactnessPlot(rawDataset, meta) {
+  if (!rawDataset || !rawDataset.length) return;
+
+  const times = [];
+  const compactnessList = [];
+  const startSec = meta.clip_start_offset_sec || 0.0;
+  const fps = meta.fps || 25.0;
+
+  for (let i = 0; i < rawDataset.length; i += Math.round(fps)) {
+    const frame = rawDataset[i];
+    const positions = getFramePositions(frame);
+    if (!positions || !positions.length) continue;
+
+    let minX = 999, maxX = -999;
+    for (let p of positions) {
+      const px = Array.isArray(p) ? p[0] : (p.x !== undefined ? p.x : 0);
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+    }
+
+    const totalSec = startSec + (i / fps);
+    const min = Math.floor(totalSec / 60);
+    const sec = Math.floor(totalSec % 60);
+    times.push(`${min}:${sec.toString().padStart(2, '0')}`);
+    compactnessList.push(Math.round((maxX - minX) * 10) / 10);
+  }
+
+  const isDark = isDarkTheme();
+  const paperBg = isDark ? '#111622' : '#FFFFFF';
+  const plotBg = isDark ? '#0A0D14' : '#F8FAFC';
+  const textColor = isDark ? '#F1F5F9' : '#0F172A';
+  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+
+  const traceCompactness = {
+    x: times,
+    y: compactnessList,
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Squad Vertical Compactness (X-span)',
+    fill: 'tozeroy',
+    fillcolor: isDark ? 'rgba(236, 72, 153, 0.12)' : 'rgba(236, 72, 153, 0.15)',
+    line: { color: '#EC4899', width: 2.5 } // Vibrant Pink / Coral
+  };
+
+  const layout = {
+    title: { text: 'Squad Vertical Compactness (Back-to-Front X-span)', font: { size: 14, color: textColor, family: 'Outfit, sans-serif' }, y: 0.95 },
+    paper_bgcolor: paperBg,
+    plot_bgcolor: plotBg,
+    xaxis: { 
+      title: { text: 'Match Clock (MM:SS)', font: { color: textColor, size: 11 }, standoff: 15 }, 
+      showgrid: true, 
+      gridcolor: gridColor, 
+      tickfont: { color: textColor, size: 10 },
+      tickangle: -45,
+      nticks: 15
+    },
+    yaxis: { 
+      title: { text: 'Compactness Span (meters)', font: { color: textColor, size: 11 }, standoff: 10 }, 
+      range: [0, 50.0], // Dynamic realistic scale for squad depth compactness
+      showgrid: true, 
+      gridcolor: gridColor, 
+      tickfont: { color: textColor, size: 10 } 
+    },
+    shapes: [
+      {
+        type: 'line',
+        x0: times[0],
+        x1: times[times.length - 1],
+        y0: 25.0,
+        y1: 25.0,
+        line: { color: 'rgba(16, 185, 129, 0.4)', width: 1.5, dash: 'dash' }
+      },
+      {
+        type: 'line',
+        x0: times[0],
+        x1: times[times.length - 1],
+        y0: 40.0,
+        y1: 40.0,
+        line: { color: 'rgba(244, 63, 94, 0.4)', width: 1.5, dash: 'dash' }
+      }
+    ],
+    annotations: [
+      {
+        x: times[Math.floor(times.length / 2)],
+        y: 26.5,
+        text: 'Compact Squad Benchmark (< 25m)',
+        showarrow: false,
+        font: { size: 9, color: '#10B981' }
+      },
+      {
+        x: times[Math.floor(times.length / 2)],
+        y: 41.5,
+        text: 'Stretched Squad Warning (> 40m)',
+        showarrow: false,
+        font: { size: 9, color: '#F43F5E' }
+      }
+    ],
+    margin: { l: 55, r: 25, t: 75, b: 70 },
+    legend: { orientation: 'h', y: 1.25, x: 0, font: { color: textColor, size: 10 } }
+  };
+
+  Plotly.newPlot('plot-pro-compactness', [traceCompactness], layout, { responsive: true });
 }
 
 function renderProAreaPlot(rawDataset, meta) {
@@ -326,7 +612,6 @@ function renderProAreaPlot(rawDataset, meta) {
   };
 
   const layout = {
-    title: { text: 'Squad Pitch Area Envelope (m²) Over Match Clock', font: { size: 13, color: textColor, family: 'Outfit, sans-serif' } },
     paper_bgcolor: paperBg,
     plot_bgcolor: plotBg,
     xaxis: { 
@@ -343,8 +628,8 @@ function renderProAreaPlot(rawDataset, meta) {
       gridcolor: gridColor, 
       tickfont: { color: textColor, size: 10 } 
     },
-    margin: { l: 55, r: 25, t: 40, b: 70 },
-    legend: { orientation: 'h', y: 1.12, font: { color: textColor, size: 11 } }
+    margin: { l: 55, r: 25, t: 25, b: 60 },
+    legend: { orientation: 'h', y: 1.12, x: 0, font: { color: textColor, size: 10 } }
   };
 
   Plotly.newPlot('plot-pro-area', [traceArea], layout, { responsive: true });
@@ -395,7 +680,7 @@ function renderProPhasePlot(rawDataset, meta) {
     mode: 'markers',
     type: 'scatter',
     text: times,
-    hovertemplate: '<b>Clock %{text}</b><br>Depth: %{x}m<br>Width: %{y}m<extra></extra>',
+    hovertemplate: '<b>Clock %{text}</b><br>Compactness: %{x}m<br>Width: %{y}m<extra></extra>',
     marker: {
       size: 7,
       color: Array.from({ length: depths.length }, (_, k) => k),
@@ -411,28 +696,27 @@ function renderProPhasePlot(rawDataset, meta) {
   };
 
   const layout = {
-    title: { text: 'Tactical Phase Space (Depth vs Width Matrix)', font: { size: 13, color: textColor, family: 'Outfit, sans-serif' } },
     paper_bgcolor: paperBg,
     plot_bgcolor: plotBg,
     xaxis: { 
-      title: { text: 'Team Depth X-span (meters)', font: { color: textColor, size: 11 }, standoff: 15 }, 
+      title: { text: 'Squad Vertical Compactness (X-span in meters)', font: { color: textColor, size: 11 }, standoff: 15 }, 
       showgrid: true, 
       gridcolor: gridColor, 
       tickfont: { color: textColor, size: 10 } 
     },
     yaxis: { 
-      title: { text: 'Team Width Y-span (meters)', font: { color: textColor, size: 11 }, standoff: 10 }, 
+      title: { text: 'Team Pitch Width (Y-span in meters)', font: { color: textColor, size: 11 }, standoff: 10 }, 
       showgrid: true, 
       gridcolor: gridColor, 
       tickfont: { color: textColor, size: 10 } 
     },
     shapes: [
-      { type: 'rect', x0: 30, y0: 35, x1: 45, y1: 55, line: { color: '#F59E0B', width: 1.5, dash: 'dash' }, fillcolor: 'rgba(245, 158, 11, 0.08)' }
+      { type: 'rect', x0: 20, y0: 35, x1: 35, y1: 55, line: { color: '#F59E0B', width: 1.5, dash: 'dash' }, fillcolor: 'rgba(245, 158, 11, 0.08)' }
     ],
     annotations: [
-      { x: 37.5, y: 56, text: 'Median Tactical Zone', showarrow: false, font: { size: 10, color: '#F59E0B' } }
+      { x: 27.5, y: 56, text: 'Optimal Compactness Zone', showarrow: false, font: { size: 10, color: '#F59E0B' } }
     ],
-    margin: { l: 55, r: 25, t: 40, b: 65 }
+    margin: { l: 55, r: 25, t: 25, b: 60 }
   };
 
   Plotly.newPlot('plot-pro-phase', [tracePhase], layout, { responsive: true });

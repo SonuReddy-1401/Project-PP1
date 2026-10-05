@@ -25,6 +25,7 @@ def process_dataset(raw_data, fps=25.0, clip_start_offset_sec=0.0, attacking_dir
     
     width_list = []
     depth_list = []
+    line_height_list = []
     area_list = []
     
     prev_centroid = None
@@ -80,11 +81,22 @@ def process_dataset(raw_data, fps=25.0, clip_start_offset_sec=0.0, attacking_dir
             
         w = max(1.0, max_y - min_y)
         d = max(1.0, max_x - min_x)
-        
+
+        # Dynamic Orientation-Aware Defensive Line Height & Squad Pitch Position Height (0m to 105m from own goal)
+        if attacking_direction == "right_to_left":
+            # Own goal is at X = +52.5m (right goal line)
+            line_height = max(0.0, min(105.0, 52.5 - max_x))
+            centroid_height = max(0.0, min(105.0, 52.5 - cx))
+        else:
+            # Own goal is at X = -52.5m (left goal line)
+            line_height = max(0.0, min(105.0, min_x + 52.5))
+            centroid_height = max(0.0, min(105.0, cx + 52.5))
+
         width_list.append(w)
         depth_list.append(d)
+        line_height_list.append(line_height)
         area_list.append(w * d)
-        
+
         # Centroid Trajectory & Speed Ceiling Filter (< 10 m/s = 0.4m per frame at 25fps)
         if prev_centroid is not None:
             total_intervals += 1
@@ -93,9 +105,9 @@ def process_dataset(raw_data, fps=25.0, clip_start_offset_sec=0.0, attacking_dir
                 safe_centroid_dist_m += step_m
             else:
                 rejected_intervals += 1
-                
+
         prev_centroid = (cx, cy)
-        
+
         processed_frames.append({
             "frame_idx": frame_idx,
             "timestamp_sec": idx / fps,
@@ -103,29 +115,34 @@ def process_dataset(raw_data, fps=25.0, clip_start_offset_sec=0.0, attacking_dir
             "centroid": [round(cx, 2), round(cy, 2)],
             "width": round(w, 2),
             "depth": round(d, 2),
+            "line_height": round(line_height, 2),
+            "centroid_height": round(centroid_height, 2),
             "area": round(w * d, 1)
         })
 
     # Summary Statistics
     avg_width = round(sum(width_list) / max(1, len(width_list)), 1)
     avg_depth = round(sum(depth_list) / max(1, len(depth_list)), 1)
+    avg_line_height = round(sum(line_height_list) / max(1, len(line_height_list)), 1) if 'line_height_list' in locals() and line_height_list else 55.0
     avg_area = round(sum(area_list) / max(1, len(area_list)), 1)
-    
+
     total_thirds = max(1, sum(thirds_count.values()))
     def_pct = round((thirds_count["defensive"] / total_thirds) * 100, 1)
     mid_pct = round((thirds_count["middle"] / total_thirds) * 100, 1)
     att_pct = round((thirds_count["attacking"] / total_thirds) * 100, 1)
-    
+
     rejection_rate = round((rejected_intervals / max(1, total_intervals)) * 100, 1)
     duration_sec = total_frames / fps
     avg_pace_kmh = round(((safe_centroid_dist_m / max(1, duration_sec)) * 3.6), 2)
-    
+
     stats = {
         "total_frames": total_frames,
         "total_samples": total_samples,
         "duration_sec": duration_sec,
         "avg_width_m": avg_width,
+        "avg_compactness_m": avg_depth,
         "avg_depth_m": avg_depth,
+        "avg_line_height_m": avg_line_height,
         "avg_area_m2": avg_area,
         "safe_centroid_dist_km": round(safe_centroid_dist_m / 1000.0, 2),
         "avg_pace_kmh": avg_pace_kmh,

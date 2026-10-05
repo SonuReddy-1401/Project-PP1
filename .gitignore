@@ -11,6 +11,9 @@
 # Allow UNIFIED_PIPELINE folder
 !/UNIFIED_PIPELINE/
 
+# Ignore pipeline dashboard data
+/UNIFIED_PIPELINE/dashboard/data/
+
 # Ignore python cache files
 __pycache__/
 *.pyc
